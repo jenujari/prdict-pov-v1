@@ -1,0 +1,602 @@
+cel 0 
+
+import warnings
+warnings.filterwarnings('ignore')
+
+import pandas as pd
+import numpy as np
+import json
+import joblib
+from pathlib import Path
+
+# Sklearn - Preprocessing
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder, PowerTransformer
+from sklearn.decomposition import PCA
+
+# Statsmodels for VIF
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Visualisation
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+print("✅ Imports OK")
+
+------------
+
+# ============================================================
+# CELL 1 — Load, Sort, Holiday Flag (before ffill), ffill,
+#           Derived Price Features, Lag/Rolling Features, Split
+# ============================================================
+
+CSV_PATH  = "nft50.csv"
+JSON_PATH = "categories_list.json"
+TRAIN_CUTOFF = "2026-06-30"
+
+# --- 1. Load & sort ---
+df = pd.read_csv(CSV_PATH)
+df['record_date'] = pd.to_datetime(df['record_date'])
+df = df.sort_values('record_date').reset_index(drop=True)
+print(f"Raw shape: {df.shape}")
+
+# --- 2. Load category map ---
+with open(JSON_PATH, 'r') as f:
+    category_map = json.load(f)
+categorical_cols = list(category_map.keys())
+
+# --- 3. Drop known constant / useless columns ---
+DROP_COLS = [
+    "rahu_vedha", "ketu_vedha",
+    "rahu_speed_category", "rahu_is_retro",
+    "ketu_speed_category", "ketu_is_retro",
+    "sun_is_retro", "moon_is_retro"
+]
+df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
+categorical_cols = [c for c in categorical_cols if c not in DROP_COLS]
+
+# --- 4. HOLIDAY FLAG — BEFORE ffill ---
+# Holiday logic differs for training vs future rows:
+#   Training (<=TRAIN_CUTOFF) : NaN OHLC means market was closed (real holiday/weekend)
+#   Future   (>TRAIN_CUTOFF)  : ALL OHLC are NaN (to be predicted); use weekday check only
+
+train_mask_raw   = df['record_date'] <= TRAIN_CUTOFF
+predict_mask_raw = df['record_date'] >  TRAIN_CUTOFF
+
+ohlc_null_in_train = df[['o', 'h', 'l', 'c']].isnull().any(axis=1) & train_mask_raw
+weekend_mask       = df['record_date'].dt.dayofweek >= 5  # Sat=5, Sun=6
+
+df['holiday'] = False
+# Training rows: OHLC null OR weekend => holiday
+df.loc[ohlc_null_in_train | (weekend_mask & train_mask_raw), 'holiday'] = True
+# Future predict rows: only weekends are holidays (weekday rows are trading days to predict)
+df.loc[weekend_mask & predict_mask_raw, 'holiday'] = True
+
+print(f"Holiday rows flagged : {df['holiday'].sum()} / {len(df)}")
+print(f"  Training holidays  : {df.loc[train_mask_raw, 'holiday'].sum()} / {train_mask_raw.sum()}")
+print(f"  Predict  holidays  : {df.loc[predict_mask_raw, 'holiday'].sum()} / {predict_mask_raw.sum()}")
+
+# --- 5. De-fragment & forward-fill OHLC (safe now that holiday flag is set) ---
+new_cols = {}
+new_cols['holiday'] = df['holiday']
+df = df.copy()  # de-fragment
+
+df[['o', 'h', 'l', 'c']] = df[['o', 'h', 'l', 'c']].ffill()
+
+# --- 6. Build all derived columns via dict then concat (avoids fragmentation warnings) ---
+derived = {}
+
+# Price lag features
+for lag in [1, 2, 5, 10, 20]:
+    derived[f'c_lag_{lag}'] = df['c'].shift(lag)
+
+# Rolling stats
+for window in [5, 10, 20]:
+    derived[f'c_roll_mean_{window}'] = df['c'].rolling(window).mean()
+    derived[f'c_roll_std_{window}']  = df['c'].rolling(window).std()
+
+# Derived price features
+derived['pct_change']           = ((df['c'] - df['c'].shift(1)) / df['c'].shift(1) * 100).round(4)
+derived['pct_change_direction'] = np.select(
+    [derived['pct_change'] > 0, derived['pct_change'] < 0],
+    [1, -1], default=0
+).astype(np.int8)
+derived['avg_pct_change_5']     = derived['pct_change'].rolling(5).mean().round(4)
+derived['hl_spread']            = ((df['h'] - df['l']) / df['c']).round(6)
+derived['roc_5']                = ((df['c'] - df['c'].shift(5)) / df['c'].shift(5) * 100).round(4)
+
+# Calendar features
+derived['month']       = df['record_date'].dt.month
+derived['day_of_week'] = df['record_date'].dt.dayofweek
+derived['day_of_year'] = df['record_date'].dt.dayofyear
+derived['year']        = df['record_date'].dt.year
+derived['quarter']     = df['record_date'].dt.quarter
+
+# Concat all derived columns at once (no fragmentation)
+df = pd.concat([df, pd.DataFrame(derived, index=df.index)], axis=1)
+df = df.copy()  # de-fragment again
+
+# --- 7. Cast categoricals to string ---
+for col in categorical_cols:
+    if col in df.columns:
+        df[col] = df[col].astype(str)
+
+# --- 8. Train / Predict split ---
+train_df   = df[df['record_date'] <= TRAIN_CUTOFF].copy()
+predict_df = df[df['record_date'] >  TRAIN_CUTOFF].copy()
+
+# Drop rows with NaN in key lag/derived features (first rows can't have lags)
+KEY_LAGS = ['c_lag_1', 'c_lag_5', 'c_lag_20', 'c_roll_mean_5', 'pct_change', 'avg_pct_change_5']
+train_df = train_df.dropna(subset=KEY_LAGS).reset_index(drop=True)
+
+print(f"\nAfter split & NaN drop:")
+print(f"  train_df   : {train_df.shape}")
+print(f"  predict_df : {predict_df.shape}")
+print(f"\nHoliday dist in train   : {train_df['holiday'].value_counts().to_dict()}")
+print(f"Holiday dist in predict : {predict_df['holiday'].value_counts().to_dict()}")
+print(f"\nSample derived features (last 5 non-holiday train rows):")
+print(train_df[train_df['holiday']==False][['record_date','c','c_lag_1','pct_change','pct_change_direction','avg_pct_change_5']].tail())
+print(f"\nSample predict rows (first 5 weekday rows):")
+print(predict_df[predict_df['holiday']==False][['record_date','holiday','c','pct_change_direction']].head())
+
+
+------------------
+
+
+
+# ============================================================
+# CELL 2 — Column Classification
+#           Classify all features into: constant (drop) / bool / categorical / numeric
+# ============================================================
+
+TARGETS      = ['o', 'h', 'l', 'c']
+EXCLUDE_COLS = ['record_date'] + TARGETS
+
+# All candidate feature columns
+all_feature_cols = [c for c in train_df.columns if c not in EXCLUDE_COLS]
+
+# --- Step 0: Drop CONSTANT columns (only 1 unique value in training set) ---
+constant_cols = [
+    col for col in all_feature_cols
+    if train_df[col].nunique(dropna=True) <= 1
+]
+if constant_cols:
+    train_df   = train_df.drop(columns=constant_cols)
+    predict_df = predict_df.drop(columns=constant_cols)
+    print(f"Dropped {len(constant_cols)} constant columns: {constant_cols}")
+
+# Refresh feature cols after dropping constants
+all_feature_cols = [c for c in train_df.columns if c not in EXCLUDE_COLS]
+
+# Also remove constants from categorical_cols if present
+categorical_cols_clean = [c for c in categorical_cols if c in all_feature_cols]
+
+# --- Group A: Boolean / Binary columns ---
+# Exactly 2 unique values, castable to int
+bool_cols = []
+for col in all_feature_cols:
+    unique_vals = train_df[col].dropna().unique()
+    if len(unique_vals) == 2:
+        try:
+            train_df[col]   = train_df[col].astype(int)
+            predict_df[col] = predict_df[col].astype(int)
+            bool_cols.append(col)
+        except (ValueError, TypeError):
+            pass  # not bool-castable, will be classified elsewhere
+
+# --- Group B: Categorical columns (from categories_list.json) ---
+cat_cols = [c for c in categorical_cols_clean if c in all_feature_cols and c not in bool_cols]
+
+# --- Group C: Numeric / Continuous columns ---
+num_cols = [
+    c for c in all_feature_cols
+    if c not in bool_cols
+    and c not in cat_cols
+]
+
+print("=" * 60)
+print(f"Total feature columns      : {len(all_feature_cols)}")
+print(f"  Constant cols dropped    : {len(constant_cols)}")
+print(f"  Group A — Boolean/Binary  : {len(bool_cols)}")
+print(f"  Group B — Categorical     : {len(cat_cols)}")
+print(f"  Group C — Numeric         : {len(num_cols)}")
+print("=" * 60)
+
+print(f"\nBoolean columns ({len(bool_cols)}): {bool_cols}")
+
+print(f"\nCategorical columns ({len(cat_cols)}):")
+print(cat_cols)
+
+print(f"\nNumeric columns ({len(num_cols)}) [first 30]:")
+print(num_cols[:30])
+
+# Skewness of numeric features (flag highly skewed ones)
+num_skew = train_df[num_cols].skew().sort_values(ascending=False)
+print(f"\nTop 10 most skewed numeric features (|skew| > 1.5):")
+print(num_skew[num_skew.abs() > 1.5].head(10))
+
+# Sanity checks
+assert len(set(bool_cols) & set(cat_cols))  == 0, "Overlap: bool & cat!"
+assert len(set(bool_cols) & set(num_cols))  == 0, "Overlap: bool & num!"
+assert len(set(cat_cols)  & set(num_cols))  == 0, "Overlap: cat & num!"
+assert len(bool_cols) + len(cat_cols) + len(num_cols) == len(all_feature_cols), "Column count mismatch!"
+print("\n✅ No overlaps. All columns classified.")
+
+-----------------
+
+# ============================================================
+# CELL 3 — Encoding Pipeline (ColumnTransformer)
+#           bool -> passthrough, cat -> OrdinalEncoder,
+#           num -> (log1p for skewed) -> StandardScaler
+#           Fit on TRAIN only, transform both.
+# ============================================================
+from sklearn.preprocessing import FunctionTransformer
+
+# --- Identify highly skewed numeric columns for log-transform ---
+SKEW_THRESHOLD = 1.5
+num_skew = train_df[num_cols].skew()
+skewed_num_cols = list(num_skew[num_skew.abs() > SKEW_THRESHOLD].index)
+normal_num_cols = [c for c in num_cols if c not in skewed_num_cols]
+
+print(f"Skewed numeric cols (|skew| > {SKEW_THRESHOLD}): {len(skewed_num_cols)}")
+print(f"Normal numeric cols                        : {len(normal_num_cols)}")
+print(f"Skewed cols: {skewed_num_cols}")
+
+# --- Build categories list in order for OrdinalEncoder ---
+categories_in_order = [
+    category_map.get(col, sorted(train_df[col].dropna().unique().tolist()))
+    for col in cat_cols
+]
+
+# --- Boolean pipeline: passthrough (already 0/1 int) ---
+bool_transformer = 'passthrough'
+
+# --- Categorical pipeline ---
+categorical_transformer = Pipeline([
+    ('imputer', SimpleImputer(strategy='constant', fill_value='None')),
+    ('encoder', OrdinalEncoder(
+        categories=categories_in_order,
+        handle_unknown='use_encoded_value',
+        unknown_value=-1
+    ))
+])
+
+# --- Numeric pipeline for skewed features: log1p then StandardScaler ---
+# feature_names_out='one-to-one' lets sklearn track names through FunctionTransformer
+skewed_num_transformer = Pipeline([
+    ('imputer',       SimpleImputer(strategy='median')),
+    ('log_transform', FunctionTransformer(np.log1p, validate=True,
+                                          feature_names_out='one-to-one')),
+    ('scaler',        StandardScaler())
+])
+
+# --- Numeric pipeline for normal features: StandardScaler only ---
+normal_num_transformer = Pipeline([
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler',  StandardScaler())
+])
+
+# --- Combined ColumnTransformer ---
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('bool',       bool_transformer,       bool_cols),
+        ('cat',        categorical_transformer, cat_cols),
+        ('num_skewed', skewed_num_transformer,  skewed_num_cols),
+        ('num_normal', normal_num_transformer,  normal_num_cols),
+    ],
+    remainder='drop'
+)
+
+# Prepare X (inputs) and y (targets)
+X_train_raw   = train_df[all_feature_cols]
+X_predict_raw = predict_df[all_feature_cols]
+y_train       = train_df[['o', 'h', 'l', 'c']]
+
+# --- Fit on TRAIN only, transform both ---
+print("\nFitting preprocessing pipeline on training data...")
+X_train_encoded   = preprocessor.fit_transform(X_train_raw)
+print("Transforming predict data...")
+X_predict_encoded = preprocessor.transform(X_predict_raw)
+
+# Get output feature names
+feature_names = list(preprocessor.get_feature_names_out())
+
+print(f"\nX_train_encoded  shape : {X_train_encoded.shape}")
+print(f"X_predict_encoded shape : {X_predict_encoded.shape}")
+print(f"Feature names count     : {len(feature_names)}")
+print(f"\nNaN in X_train_encoded  : {np.isnan(X_train_encoded).sum()}")
+print(f"NaN in X_predict_encoded: {np.isnan(X_predict_encoded).sum()}")
+print(f"\nSample feature names (first 10): {feature_names[:10]}")
+print("\n✅ Encoding pipeline complete.")
+
+
+------------
+
+
+# ============================================================
+# CELL 4 — Correlation Analysis & Column Dropping
+#           Drop one from each pair where |r| >= 0.95
+#           Keep the feature with higher variance.
+# ============================================================
+
+CORR_THRESHOLD = 0.95
+
+# Create output dirs first
+Path('outputs').mkdir(exist_ok=True)
+Path('kb').mkdir(exist_ok=True)
+
+X_train_df = pd.DataFrame(X_train_encoded, columns=feature_names)
+
+# Compute Pearson correlation matrix
+print("Computing correlation matrix...")
+corr_matrix = X_train_df.corr().abs()
+
+# --- Identify columns to drop ---
+# Upper triangle only (avoid double-counting pairs)
+upper_tri = corr_matrix.where(
+    np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+)
+
+# For each column that is highly correlated with another, keep the higher-variance one
+variances = X_train_df.var()
+to_drop_corr = set()
+
+for col in upper_tri.columns:
+    correlated_with = upper_tri.index[upper_tri[col] >= CORR_THRESHOLD].tolist()
+    for partner in correlated_with:
+        if col not in to_drop_corr and partner not in to_drop_corr:
+            # Drop the one with lower variance
+            if variances[col] >= variances[partner]:
+                to_drop_corr.add(partner)
+            else:
+                to_drop_corr.add(col)
+
+to_drop_corr = sorted(to_drop_corr)
+print(f"Highly correlated pairs (|r| >= {CORR_THRESHOLD}): dropping {len(to_drop_corr)} features")
+print(f"Dropped: {to_drop_corr}")
+
+# --- Apply drop to train and predict ---
+X_train_pruned   = X_train_df.drop(columns=to_drop_corr).values
+X_predict_pruned = pd.DataFrame(X_predict_encoded, columns=feature_names).drop(columns=to_drop_corr).values
+feature_names_pruned = [c for c in feature_names if c not in to_drop_corr]
+
+print(f"\nAfter correlation pruning:")
+print(f"  X_train_pruned   : {X_train_pruned.shape}")
+print(f"  X_predict_pruned : {X_predict_pruned.shape}")
+
+# --- Heatmap of high-correlation pairs (|r| > 0.85) ---
+high_corr_cols = list(set(
+    list(upper_tri.stack()[upper_tri.stack() > 0.85].index.get_level_values(0)) +
+    list(upper_tri.stack()[upper_tri.stack() > 0.85].index.get_level_values(1))
+))
+if len(high_corr_cols) > 1:
+    fig, ax = plt.subplots(figsize=(14, 12))
+    subset_corr = corr_matrix.loc[high_corr_cols, high_corr_cols]
+    sns.heatmap(subset_corr, ax=ax, cmap='coolwarm', vmin=0, vmax=1,
+                xticklabels=True, yticklabels=True, linewidths=0.3)
+    ax.set_title(f'High Correlation Features (|r| > 0.85) — {len(high_corr_cols)} features', fontsize=13)
+    plt.tight_layout()
+    plt.savefig('outputs/correlation_heatmap.png', dpi=100, bbox_inches='tight')
+    plt.show()
+    print(f"Heatmap saved to outputs/correlation_heatmap.png")
+else:
+    print("No high-correlation pairs to plot.")
+
+# --- Save dropped columns to kb/ ---
+with open('kb/dropped_correlated_features.md', 'w') as f:
+    f.write('# Dropped Correlated Features\n\n')
+    f.write(f'Threshold: |r| >= {CORR_THRESHOLD}\n\n')
+    f.write(f'Total dropped: {len(to_drop_corr)}\n\n')
+    f.write('## Columns Dropped\n\n')
+    for col in to_drop_corr:
+        f.write(f'- `{col}`\n')
+print(f"\n✅ Correlation pruning complete. Saved to kb/dropped_correlated_features.md")
+
+--------
+
+# ============================================================
+# CELL 5 — VIF Check (Variance Inflation Factor)
+#           Flag numeric features with VIF > 10 (report only, no auto-drop)
+# ============================================================
+
+# VIF only makes sense on numeric/continuous features
+# Extract only numeric columns from pruned feature set
+numeric_prefix = ('num_skewed__', 'num_normal__')
+numeric_pruned_cols = [c for c in feature_names_pruned if c.startswith(numeric_prefix)]
+numeric_pruned_idx  = [feature_names_pruned.index(c) for c in numeric_pruned_cols]
+
+X_numeric_only = X_train_pruned[:, numeric_pruned_idx]
+
+print(f"Computing VIF on {len(numeric_pruned_cols)} numeric features...")
+print("(This may take a moment)")
+
+vif_records = []
+for i, col in enumerate(numeric_pruned_cols):
+    try:
+        vif_val = variance_inflation_factor(X_numeric_only, i)
+        vif_records.append({'feature': col, 'VIF': round(vif_val, 2)})
+    except Exception as e:
+        vif_records.append({'feature': col, 'VIF': float('inf')})
+
+vif_df = pd.DataFrame(vif_records).sort_values('VIF', ascending=False).reset_index(drop=True)
+
+high_vif = vif_df[vif_df['VIF'] > 10]
+print(f"\nFeatures with VIF > 10 ({len(high_vif)})  — candidates for additional review:")
+print(high_vif.to_string())
+
+print(f"\nFeatures with VIF <= 10 ({len(vif_df) - len(high_vif)})  — low multicollinearity:")
+print(vif_df[vif_df['VIF'] <= 10].to_string())
+
+# Save VIF report to kb/
+vif_df.to_csv('kb/vif_report.csv', index=False)
+print(f"\n✅ VIF report saved to kb/vif_report.csv")
+print("\nNote: high VIF features are flagged for review only — no auto-drop applied.")
+
+------------
+
+# ============================================================
+# CELL 6 — PCA (n_components=0.95)
+#           Fit on train only, transform both train and predict.
+#           Save PCA model and scree plot.
+# ============================================================
+
+# --- Fit PCA on training data only ---
+print("Fitting PCA (n_components=0.95) on training data...")
+pca = PCA(n_components=0.95, random_state=42)
+X_pca_train   = pca.fit_transform(X_train_pruned)
+X_pca_predict = pca.transform(X_predict_pruned)   # transform only — no leakage
+
+print(f"\nPCA results:")
+print(f"  Original features  : {X_train_pruned.shape[1]}")
+print(f"  PCA components     : {pca.n_components_}")
+print(f"  Variance retained  : {pca.explained_variance_ratio_.sum():.4f}")
+print(f"  X_pca_train  shape : {X_pca_train.shape}")
+print(f"  X_pca_predict shape: {X_pca_predict.shape}")
+
+# --- Scree Plot: cumulative explained variance ---
+cumulative_var = np.cumsum(pca.explained_variance_ratio_)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Left: Cumulative variance
+axes[0].plot(range(1, len(cumulative_var) + 1), cumulative_var, 'b-o', markersize=3)
+axes[0].axhline(y=0.95, color='r', linestyle='--', label='95% threshold')
+axes[0].axvline(x=pca.n_components_, color='g', linestyle='--',
+                label=f'n={pca.n_components_} components')
+axes[0].set_xlabel('Number of Components')
+axes[0].set_ylabel('Cumulative Explained Variance')
+axes[0].set_title('PCA — Cumulative Explained Variance (Scree Plot)')
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# Right: Per-component explained variance (top components)
+top_n = min(40, pca.n_components_)
+axes[1].bar(range(1, top_n + 1), pca.explained_variance_ratio_[:top_n], color='steelblue')
+axes[1].set_xlabel('Principal Component')
+axes[1].set_ylabel('Explained Variance Ratio')
+axes[1].set_title(f'PCA — Per-Component Variance (Top {top_n})')
+axes[1].grid(True, alpha=0.3, axis='y')
+
+plt.tight_layout()
+plt.savefig('outputs/pca_scree_plot.png', dpi=120, bbox_inches='tight')
+plt.show()
+print("Scree plot saved to outputs/pca_scree_plot.png")
+
+# --- Save PCA model ---
+Path('models').mkdir(exist_ok=True)
+joblib.dump(pca, 'models/pca_95.joblib')
+print(f"PCA model saved to models/pca_95.joblib")
+
+print("\n✅ PCA complete.")
+------------
+# ============================================================
+# CELL 7 — Validation Assertions + Knowledge Base Notes
+# ============================================================
+import datetime
+
+# --- Assertions ---
+assert not np.isnan(X_pca_train).any(),   "❌ NaN in X_pca_train!"
+assert not np.isnan(X_pca_predict).any(), "❌ NaN in X_pca_predict!"
+assert X_pca_train.shape[0]   == y_train.shape[0], "❌ Train row count mismatch!"
+assert X_pca_predict.shape[1] == X_pca_train.shape[1], "❌ Component count mismatch!"
+assert X_pca_train.shape[1]   == pca.n_components_, "❌ PCA component count wrong!"
+
+print("✅ All assertions passed!")
+print(f"  Final X_pca_train  : {X_pca_train.shape}")
+print(f"  Final X_pca_predict: {X_pca_predict.shape}")
+print(f"  y_train (OHLC)     : {y_train.shape}")
+
+# --- Feature pipeline summary ---
+original_cols     = 240  # raw CSV columns
+after_drop_const  = 240 - len(DROP_COLS) - len(constant_cols)
+after_corr        = len(feature_names_pruned)
+after_pca         = pca.n_components_
+
+print(f"\n── Feature Reduction Summary ──")
+print(f"  Raw CSV columns         : {original_cols}")
+print(f"  After dropping constants: {after_drop_const}")
+print(f"  After encoding pipeline : {len(feature_names)}")
+print(f"  After correlation prune : {after_corr} ({len(to_drop_corr)} dropped)")
+print(f"  After PCA (95% var)     : {after_pca}")
+
+# --- Write kb/feature_engineering_notes.md ---
+notes = f"""# Feature Engineering Notes
+
+Date: {datetime.date.today()}
+
+## Feature Reduction Summary
+
+| Stage | Features |
+|-------|----------|
+| Raw CSV columns | {original_cols} |
+| After dropping constant cols | {after_drop_const} |
+| After encoding (ColumnTransformer) | {len(feature_names)} |
+| After correlation pruning (\|r\| >= 0.95) | {after_corr} |
+| After PCA (95% variance retained) | {after_pca} |
+
+## Column Groups
+
+- **Boolean/Binary**: {len(bool_cols)} column(s): `{bool_cols}`
+- **Categorical**: {len(cat_cols)} columns (OrdinalEncoder)
+- **Numeric (Normal)**: {len(normal_num_cols)} columns (StandardScaler)
+- **Numeric (Skewed, |skew| > 1.5)**: {len(skewed_num_cols)} columns (log1p + StandardScaler)
+
+## Skewed Numeric Features (log1p applied)
+
+{chr(10).join(['- `' + c + '`' for c in skewed_num_cols])}
+
+## Constant Columns Dropped
+
+{chr(10).join(['- `' + c + '`' for c in constant_cols])}
+
+## PCA Details
+
+- n_components = 0.95 (keep 95% variance)
+- Components selected: {pca.n_components_}
+- Total variance retained: {pca.explained_variance_ratio_.sum():.4f}
+- Top component explains: {pca.explained_variance_ratio_[0]:.4f} of variance
+- Model saved: `models/pca_95.joblib`
+
+## VIF Summary
+
+- Total numeric features checked: {len(vif_df)}
+- Features with VIF > 10 (multicollinearity risk): {len(high_vif)}
+- Full VIF report: `kb/vif_report.csv`
+
+## Key Decisions
+
+1. **Holiday flag** created BEFORE ffill — ensures non-trading days correctly identified
+2. **Skewed features** transformed with log1p (log(1+x)) before StandardScaler
+3. **Constant columns** ({len(constant_cols)}) dropped automatically
+4. **Correlation pruning** at |r| >= 0.95 — higher-variance feature kept
+5. **PCA** fit on train only — transform applied to predict set (no leakage)
+"""
+
+with open('kb/feature_engineering_notes.md', 'w') as f:
+    f.write(notes)
+print("\n✅ Knowledge base written to kb/feature_engineering_notes.md")
+
+print("\n" + "="*60)
+print("FEATURE ENGINEERING COMPLETE")
+print(f"Final dataset ready for modelling:")
+print(f"  Train : {X_pca_train.shape} | Targets: {y_train.shape}")
+print(f"  Predict: {X_pca_predict.shape}")
+print("="*60)
+
+
+------------
+
+import cudf
+print(cudf.__version__)
+
+# The zero-code-change pandas accelerator also works!
+# %load_ext cudf.pandas
+
+------------
+
+
+
+------------
