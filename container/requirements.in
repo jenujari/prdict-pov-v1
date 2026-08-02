@@ -1,0 +1,12 @@
+# ML runtime for the podman container. The musl host cannot install torch or
+# xgboost at all (see kb/runtime.md), so everything model-related lives here.
+# Regenerate the lock with: ./container/lock.sh
+pandas
+numpy
+scipy
+scikit-learn
+pyarrow
+matplotlib
+xgboost
+torch
+pytorch-forecasting>=1.8,<1.9

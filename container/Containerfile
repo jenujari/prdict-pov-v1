@@ -1,0 +1,35 @@
+# ML runtime for prdict-pov-v1.
+#
+# The host is Chimera Linux (musl libc). PyTorch publishes no musl wheels at any
+# version, and XGBoost publishes none either — so every model-related step runs
+# in here instead. See kb/runtime.md.
+#
+# Build context is container/ only, so the 28 MB CSV and the 48 MB PDFs in kb/
+# never enter the build. The repo arrives at run time as a bind mount on /work.
+
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+# UV_PROJECT_ENVIRONMENT points uv at the image's venv rather than /work/.venv,
+# which is the *host's* musl venv and would break the moment it were touched.
+ENV VIRTUAL_ENV=/opt/venv \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PATH=/opt/venv/bin:$PATH \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY requirements.txt /tmp/requirements.txt
+
+RUN uv venv /opt/venv \
+    && uv pip sync /tmp/requirements.txt \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        --index-strategy unsafe-best-match \
+    && rm /tmp/requirements.txt
+
+WORKDIR /work
+
+# `python` resolves to /opt/venv/bin/python via PATH. Inside the container, call
+# scripts as `python scripts/foo.py` — never `uv run`, which would try to sync
+# against the mounted pyproject.toml and fight the image's pinned environment.
+CMD ["python"]
