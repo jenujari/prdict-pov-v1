@@ -4,7 +4,9 @@ Research note for [issue #6](https://github.com/jenujari/prdict-pov-v1/issues/6)
 resolves the conditional in map decision 2 ([issue #2](https://github.com/jenujari/prdict-pov-v1/issues/2)).
 
 **Date:** 2026-08-02 · **Version under test:** XGBoost **3.3.0** (current release, 2026-06-17),
-built from source, CPU-only, OpenMP on.
+CPU, OpenMP on. Experiments were run on a from-source musl build; findings re-verified
+2026-08-03 against the container wheel that the pipeline actually uses — see
+[Environment](#-environment-the-pipeline-runs-in-a-container-16).
 
 ---
 
@@ -27,13 +29,33 @@ really reaching for — arrived in **2.0.0** and is still labelled work-in-progr
 `multi_strategy="one_output_per_tree"` in production, with `multi_output_tree` kept as a
 cheap ablation.** Reasoning in [§6](#6-the-decision).
 
-> ### ⚠ Environment: plain `uv add xgboost` does not work on this box (tracked as issue #16)
+> ### ⚠ Environment: the pipeline runs in a container ([#16](https://github.com/jenujari/prdict-pov-v1/issues/16))
 >
-> **Everything in this note was run for real against XGBoost 3.3.0 built from source.**
-> Nothing below is doc-derived-but-untested; where a claim is documentation-only it says so
-> explicitly. The install did take a detour, and the detour is itself a finding.
+> **Everything in this note was run for real** — nothing below is doc-derived-but-untested;
+> where a claim is documentation-only it says so explicitly.
 >
-> **The failure chain, verified end to end:**
+> The experiments predate the container runtime and were executed against a **from-source
+> musl build** of 3.3.0, because at the time nothing else would install. That detour is what
+> produced [#16](https://github.com/jenujari/prdict-pov-v1/issues/16), now resolved: the
+> pipeline installs the ordinary **manylinux wheel inside a podman container** and no source
+> build is needed. Run anything here with `./container/run.sh python <script>`; setup and
+> rationale in [`kb/runtime.md`](../runtime.md).
+>
+> **The results carry over.** Same version (3.3.0), same CPU `hist` code path. Re-verified
+> against the container wheel on 2026-08-03: `multi_output_tree` + `hist` +
+> `enable_categorical=True` fits and predicts `(n, 10)`, and the §2 categorical degradation
+> reproduces exactly — 20 rounds at depth 5 gave **32/32 categorical splits of size 1** under
+> vector leaf against sets up to size 26 under `one_output_per_tree`, with
+> `max_cat_to_onehot=4` set in both.
+>
+> One difference worth knowing: the container wheel reports `USE_CUDA: True` / `USE_NCCL:
+> True`, where the source build reported both `False`. This is cosmetic here — it is the
+> stock PyPI wheel, NCCL is `dlopen`ed and never loaded on a GPU-less box, and `device`
+> defaults to `"cpu"`. Timings in §4 came from the source build and were not re-run; treat
+> them as ratios, not absolute numbers.
+>
+> **The musl failure chain**, verified end to end, kept because it is the evidence behind #16
+> and because it pins down which versions are viable at all:
 >
 > 1. This box is **Chimera Linux / musl libc** (`ldd → musl libc 1.2.6`). XGBoost publishes
 >    **no `musllinux` wheels for any version** — `manylinux` only (checked 2.0.3, 2.1.4,
@@ -78,9 +100,9 @@ cheap ablation.** Reasoning in [§6](#6-the-decision).
 >      buildable on this box at all, at any toolchain.** Upstream fixed musl compatibility
 >      later; the 3.x source compiles cleanly.
 >
-> **Which version is actually installable here: 3.3.0 — the current release.** It builds
-> cleanly from source in ~2.5 min on 16 cores. This is the install used for every experiment
-> below:
+> **Which version is actually installable on the musl host: 3.3.0 — the current release.** It
+> builds cleanly from source in ~2.5 min on 16 cores, and that build is what produced the
+> experiments below:
 >
 > ```sh
 > uv venv --python 3.12 .venv
@@ -99,6 +121,11 @@ cheap ablation.** Reasoning in [§6](#6-the-decision).
 >  'CLANG_VERSION': [22, 1, 7], 'MM_PREFETCH_PRESENT': True, ...}
 > ```
 >
+> **This recipe is now historical.** It is recorded because it is the only way to get XGBoost
+> onto the *host*, and because it demonstrates the gap is a packaging accident rather than a
+> hard incompatibility — which is precisely why #16 chose a container over a source build:
+> torch has no such escape hatch. Do not use it for the pipeline.
+>
 > **So the version constraint runs the opposite way to the usual worry.** The concern was
 > that a doc answer about the newest release would be useless because only an old release is
 > installable. In fact the newest release is the *easy* one to build and 2.0.3 is the one
@@ -113,9 +140,10 @@ cheap ablation.** Reasoning in [§6](#6-the-decision).
 > importance (all 3.2.0), and SHAP (3.3.0). A 2.0.3 fallback would fail map decision 6
 > outright. *(This paragraph is changelog-derived, not executed — 2.0.3 would not compile.)*
 >
-> **Action for the pipeline:** pin `xgboost==3.3.0` and record the `--no-deps --no-binary`
-> build in the project setup, or the lockfile silently resolves to an unbuildable 2.0.3.
-> Filed separately as issue #16.
+> **Action for the pipeline — done.** `xgboost==3.3.0` is pinned in
+> `container/requirements.txt`, resolved for `x86_64-manylinux_2_28` rather than for the host,
+> so the 2.0.3 backtrack cannot happen. The `>= 3.3.0` floor is a hard requirement, not a
+> preference: 3.2.0 and below have no categorical support under vector leaf and no SHAP.
 
 ---
 
@@ -670,9 +698,14 @@ Two things the training-plan ticket must carry forward:
 ## Reproducing
 
 Every number above came from these scripts against the source-built XGBoost 3.3.0 described in
-the blocker box. The synthetic generator (`exp_common.py`) produces 6517 rows × (60 numeric +
-40 `category`) with a 10-element target in step and cumulative form, and is included in full
+the environment box. The synthetic generator (`exp_common.py`) produces 6517 rows × (60 numeric
++ 40 `category`) with a 10-element target in step and cumulative form, and is included in full
 below so the numbers can be re-derived.
+
+To re-run them now, drop the scripts somewhere in the repo and go through the container —
+`./container/run.sh python <script>.py`. Structural results (tree counts, split sizes, shapes,
+RMSE) are deterministic and reproduce; wall-clock timings will differ from §4, which was
+measured on the host build.
 
 <details>
 <summary><code>exp_common.py</code> — synthetic data matched to the project shape</summary>
