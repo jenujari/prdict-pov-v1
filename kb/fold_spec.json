@@ -1,106 +1,229 @@
 {
   "generated": "2026-08-03",
   "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/10",
-  "geometry": "expanding_window",
+  "geometry": "rolling_window",
   "total_trainable_origins": 6448,
+  "derivation": {
+    "sessions_per_year": 247,
+    "train_years": 10,
+    "train_length_origins": 2470,
+    "n_folds": 5,
+    "val_length_origins": 673,
+    "last_fold_extra_origins": 2,
+    "cv_pool_origins": 5847,
+    "identity": "5847 CV origins = 2470 train + 10 purge + 5 x 673 validation + 2 remainder"
+  },
+  "purge": {
+    "sessions": 10,
+    "derivation": "A sample at origin t carries labels for the closes at t+1..t+10, so two origins separated by fewer than 10 sessions share at least one label day (#8). Separation of exactly 10 is therefore the floor at which no training label and no validation label share a return. This spec sits on that floor: each fold's last training label terminates on the close of its first validation origin \u2014 the same close, but never the same return.",
+    "known_residual": "At 10 sessions the separation is label-level, not row-level. Each training block's 30-session known-future block still reaches 21 sessions into its validation dates, so the scaler and PCA are fitted on rows carrying validation-period dates. Accepted deliberately: every one of those columns is astro or calendar (#3 \u2014 every feature is known-future), so the rows hold no information that would not have been available at the training origin. Row-level separation would cost 69 sessions (60 encoder + 9 label) and 59 training origins per fold. Recorded so the choice is visible rather than implied."
+  },
+  "embargo": {
+    "sessions": 0,
+    "why_omitted": "An embargo withholds training rows that sit *after* a validation block. Under any forward walk-forward geometry \u2014 rolling or expanding \u2014 every training block ends before its own validation block begins, so there are no such rows to withhold. An embargo only does work in interleaved k-fold CV, where a test block has training data on both sides. The previous revision of this spec recorded a 69-session embargo; it withheld nothing, and all 69 of fold 1's nominally embargoed origins were present in the training sets of folds 3, 4 and 5."
+  },
   "holdout": {
     "start_date": "2024-01-01",
     "end_date": "2026-06-15",
-    "origins_count": 601,
-    "policy": "Strictly untouched final holdout set containing post-2023 market regimes."
+    "origins": 601,
+    "purge_sessions": 10,
+    "final_train_start": "2013-12-04",
+    "final_train_end": "2023-12-15",
+    "final_train_origins": 2470,
+    "final_inner_val_start": "2022-06-15",
+    "final_inner_val_end": "2023-12-15",
+    "policy": "Untouched until all three models are final and compared once. The models scored on it are refit on the final training block above \u2014 the same rolling geometry, the same purge \u2014 so the holdout comparison is not a different experiment from the folds.",
+    "known_limitation": "The window is a calm rising regime: +9.8% total, 13.9% annualised volatility, worst drawdown -15.8%, worst single day -6.1%. The history it is drawn from contains far harsher regimes (2008: -51.8%, 45.8% vol, -59.4% drawdown; 2020: -38.4% drawdown, -13.9% worst day). Because the always-up baseline scores well on a rising window by construction, this holdout has limited power to separate the astro models from that baseline on drawdown or Sharpe. Chosen deliberately to keep the CV pool large; the write-up must state that the comparison is evidenced on one benign regime only."
   },
   "walk_forward": {
     "n_folds": 5,
-    "total_val_pool_origins": 5847,
-    "total_val_scored_origins": 3393,
+    "total_val_origins": 3367,
     "folds": [
       {
         "fold": 1,
-        "train_start": "2000-03-29",
-        "train_end": "2010-03-17",
-        "train_origins_count": 2445,
-        "val_start": "2010-04-01",
-        "val_end": "2012-12-19",
-        "val_origins_count": 678,
-        "purge_pre_sessions": 10,
-        "embargo_post_sessions": 69
+        "train_start": "2000-03-30",
+        "train_end": "2010-04-27",
+        "train_origins": 2470,
+        "inner_train_start": "2000-03-30",
+        "inner_train_end": "2008-09-18",
+        "inner_train_origins": 2091,
+        "inner_val_start": "2008-10-07",
+        "inner_val_end": "2010-04-27",
+        "inner_val_origins": 370,
+        "val_start": "2010-05-11",
+        "val_end": "2013-01-18",
+        "val_origins": 673,
+        "train_val_separation_sessions": 10,
+        "train_spans_gap": true,
+        "val_spans_gap": false
       },
       {
         "fold": 2,
-        "train_start": "2000-03-29",
-        "train_end": "2012-12-06",
-        "train_origins_count": 3123,
-        "val_start": "2012-12-20",
-        "val_end": "2015-09-22",
-        "val_origins_count": 678,
-        "purge_pre_sessions": 10,
-        "embargo_post_sessions": 69
+        "train_start": "2002-12-19",
+        "train_end": "2013-01-07",
+        "train_origins": 2470,
+        "inner_train_start": "2002-12-19",
+        "inner_train_end": "2011-06-23",
+        "inner_train_origins": 2091,
+        "inner_val_start": "2011-07-07",
+        "inner_val_end": "2013-01-07",
+        "inner_val_origins": 370,
+        "val_start": "2013-01-21",
+        "val_end": "2015-10-16",
+        "val_origins": 673,
+        "train_val_separation_sessions": 10,
+        "train_spans_gap": true,
+        "val_spans_gap": false
       },
       {
         "fold": 3,
-        "train_start": "2000-03-29",
-        "train_end": "2015-09-08",
-        "train_origins_count": 3801,
-        "val_start": "2015-09-23",
-        "val_end": "2018-06-22",
-        "val_origins_count": 678,
-        "purge_pre_sessions": 10,
-        "embargo_post_sessions": 69
+        "train_start": "2005-08-25",
+        "train_end": "2015-10-05",
+        "train_origins": 2470,
+        "inner_train_start": "2005-08-25",
+        "inner_train_end": "2014-03-14",
+        "inner_train_origins": 2091,
+        "inner_val_start": "2014-03-31",
+        "inner_val_end": "2015-10-05",
+        "inner_val_origins": 370,
+        "val_start": "2015-10-19",
+        "val_end": "2018-07-09",
+        "val_origins": 673,
+        "train_val_separation_sessions": 10,
+        "train_spans_gap": true,
+        "val_spans_gap": false
       },
       {
         "fold": 4,
-        "train_start": "2000-03-29",
-        "train_end": "2018-06-11",
-        "train_origins_count": 4479,
-        "val_start": "2018-06-25",
-        "val_end": "2021-03-24",
-        "val_origins_count": 678,
-        "purge_pre_sessions": 10,
-        "embargo_post_sessions": 69
+        "train_start": "2008-05-20",
+        "train_end": "2018-06-26",
+        "train_origins": 2470,
+        "inner_train_start": "2008-05-20",
+        "inner_train_end": "2016-12-16",
+        "inner_train_origins": 2091,
+        "inner_val_start": "2016-12-30",
+        "inner_val_end": "2018-06-26",
+        "inner_val_origins": 370,
+        "val_start": "2018-07-10",
+        "val_end": "2021-04-05",
+        "val_origins": 673,
+        "train_val_separation_sessions": 10,
+        "train_spans_gap": true,
+        "val_spans_gap": false
       },
       {
         "fold": 5,
-        "train_start": "2000-03-29",
-        "train_end": "2021-03-10",
-        "train_origins_count": 5157,
-        "val_start": "2021-03-25",
+        "train_start": "2011-03-11",
+        "train_end": "2021-03-19",
+        "train_origins": 2470,
+        "inner_train_start": "2011-03-11",
+        "inner_train_end": "2019-09-11",
+        "inner_train_origins": 2091,
+        "inner_val_start": "2019-09-25",
+        "inner_val_end": "2021-03-19",
+        "inner_val_origins": 370,
+        "val_start": "2021-04-06",
         "val_end": "2023-12-29",
-        "val_origins_count": 681,
-        "purge_pre_sessions": 10,
-        "embargo_post_sessions": 69
+        "val_origins": 675,
+        "train_val_separation_sessions": 10,
+        "train_spans_gap": false,
+        "val_spans_gap": false
       }
     ]
   },
-  "purge_embargo_arithmetic": {
-    "purge_pre_sessions": 10,
-    "purge_reason": "10 sessions (target horizon) to eliminate direct target label leakage from train into val.",
-    "embargo_post_sessions": 69,
-    "embargo_reason": "69 sessions (60 encoder lookback + 9 label overlap) for 100% complete row-level independence."
+  "inner_split": {
+    "fraction": 0.15,
+    "purge_sessions": 10,
+    "rule": "The last 15% of each training block is the inner validation set. The inner training block is everything before it, less the same 10-session purge. Early stopping and hyperparameter selection see the inner validation set and nothing else.",
+    "why": "The outer validation origins carry the reported out-of-sample trading scorecard. If early stopping or hyperparameter choice also read them, the reported number becomes a best-of-N selected on the very days it is reported for. Overlapping labels make this acute: 9 of every 10 label days are shared, so a fold's validation block is worth roughly 67 independent observations, and best-of-N on that few will manufacture an edge out of noise.",
+    "budget_rule": "The hyperparameter search space and the number of configurations tried are fixed in writing before any model runs, and are not expanded after seeing inner validation results."
   },
   "in_fold_fits": [
     {
       "stage": "Scaler",
-      "description": "StandardScaler / RobustScaler fitted strictly on training fold origins."
+      "description": "StandardScaler / RobustScaler, fitted on the inner training block only, so that the inner validation set is scaled by statistics that never saw it."
     },
     {
-      "stage": "Correlation Prune",
-      "description": "Pairwise correlation matrix (|r| >= 0.95) computed strictly on training fold origins."
+      "stage": "Correlation prune",
+      "description": "Pairwise \\|r\\| >= 0.95 among features (map decision 7, stage 1). Refit per fold, and bound by the pair-atomicity constraint below."
     },
     {
-      "stage": "Feature Ranking",
-      "description": "Mutual Information / Spearman correlation ranking computed strictly on training fold origins."
+      "stage": "Feature ranking",
+      "description": "Mutual information + Spearman against the target, keep top-N (map decision 7, stage 2). Target-dependent, so it must never see validation labels."
     },
     {
       "stage": "PCA",
-      "description": "Principal Component Analysis (n_components=0.95) fitted strictly on scaled training fold features."
+      "description": "Per-timestep, numeric-only, n_components=0.95 (map decision 9), fitted on the scaled inner training block."
     },
     {
-      "stage": "Data-Dependent Redundancy / Variance Filter",
-      "description": "Any empirical zero-variance or empirical redundancy filtering evaluated strictly inside each training fold."
+      "stage": "Empirical variance / redundancy filters",
+      "description": "Any filter whose decision depends on values observed in this fold \u2014 near-zero variance, empirical duplicate detection. Distinct from the structural drops below."
     }
   ],
+  "global_fits": [
+    {
+      "stage": "Structural constant drop",
+      "description": "The 28 constant columns from #3 are dropped once, globally. `kb/column_spec.md` records that all 28 are constant *by definition* \u2014 a formula constant for the nodes, a mean-node rate, and so on \u2014 not constant by sampling accident. A definitional constant carries no fold-specific information, so dropping it globally cannot leak. This is the concern #10 originally raised, and #3 answers it."
+    },
+    {
+      "stage": "Structural Ketu drops",
+      "description": "`ketu_longitude` and the duplicate Ketu balas (#7, #30) are dropped globally on the same argument: they are exact functions of their Rahu twins on every row, definitionally rather than empirically."
+    },
+    {
+      "stage": "Categorical level list",
+      "description": "Levels come from `categories_list.json` \u2014 the full declared list, never the observed values (map decision 6). Fitting an encoder per fold would give different embedding widths per fold; the declared list makes the encoding fold-invariant by construction."
+    },
+    {
+      "stage": "Angular sin/cos transform",
+      "description": "Deterministic and parameter-free (#7). Nothing is estimated, so there is nothing to fit inside a fold."
+    }
+  ],
+  "constraints": [
+    {
+      "name": "Sin/cos pair atomicity",
+      "rule": "The correlation prune and the ranking stage treat each `<col>_sin` / `<col>_cos` pair as one indivisible unit: both survive or both are dropped, and the pair is ranked on its joint score.",
+      "why": "#7 settled that a lone half is a wrong encoding, not merely a weak one \u2014 sin alone folds two configurations onto one value. Because the prune is refit per fold, an unconstrained prune could keep a pair in fold 1 and split it in fold 4, giving the concatenated out-of-sample series several different feature semantics. #7 binds #12 and #13 to this; the same binding applies here, because the in-fold prune is the same operation."
+    },
+    {
+      "name": "No target transform is fitted",
+      "rule": "The 10-step log-return target passes through untransformed in every fold.",
+      "why": "#8 rejected winsorisation \u2014 the extreme days are the P&L under map decision 8 \u2014 so no target statistic is estimated anywhere and the target cannot leak across a fold edge."
+    }
+  ],
+  "gap_audit": {
+    "n_discontinuities": 28,
+    "source": "2008's 21 missing sessions (#25), treated as ordinary trading holidays.",
+    "boundaries_within_69_sessions_of_a_gap": {
+      "fold4.train_start": [
+        "2008-03-31",
+        "2008-04-21",
+        "2008-05-19",
+        "2008-06-02",
+        "2008-06-16",
+        "2008-06-23",
+        "2008-06-30",
+        "2008-07-08",
+        "2008-07-10",
+        "2008-07-14",
+        "2008-07-21",
+        "2008-07-28",
+        "2008-08-11",
+        "2008-08-18",
+        "2008-08-25",
+        "2008-09-03",
+        "2008-09-15"
+      ]
+    },
+    "n_validation_boundaries_near_a_gap": 0,
+    "n_training_boundaries_near_a_gap": 1,
+    "verdict": "No validation block contains or comes within 69 sessions of a discontinuity, so no scored origin is affected and no fold boundary needs to move. #25's policy stands: nothing is filtered.",
+    "training_boundaries_note": "Only training-block edges land near the 2008 stretch, and only because the rolling length places them there \u2014 no boundary was chosen to avoid or hit a gap. Fold 4's training block opens inside the defective run, so it carries a partial 2008. Under #25 that is not a defect to correct: the missing sessions are ordinary trading holidays, and a training block that starts mid-year is no more unusual than one that starts mid-quarter.",
+    "rolling_cost": "Under the rolling geometry fold 5 trains from 2011-03-11 and therefore never sees 2008 or 2000-01; fold 4 picks 2008 up only from 2008-05-20. Combined with a holdout drawn from a calm regime, the later folds and the final comparison are trained and scored on progressively calmer data. This is the price of holding the training size constant, and it is recorded rather than hidden."
+  },
   "fold_reporting": {
-    "concatenated_series": "Out-of-sample predictions across 5 validation folds (3393 origins) concatenated into one continuous time-series for trading simulation.",
-    "aggregated_metrics": "Per-fold metrics (Sharpe, max drawdown, win rate) reported as mean +- std across all 5 folds."
+    "headline": "One concatenated out-of-sample series. The five validation blocks are contiguous and disjoint, so their predictions join into a single 3367-origin series spanning 2010-05-11 to 2023-12-29, scored once on the trading-simulation scorecard (map decision 8). This is the headline number.",
+    "secondary": "Per-fold metrics reported as mean +- std across the five folds, as a consistency check on the headline. A headline carried by one fold is reported as such.",
+    "fold_boundary_rule": "Each fold is a separately fitted model, so the concatenated series crosses four model changes. Positions are flattened at each fold boundary and reopened by the incoming model, and the transaction costs of doing so are charged. Carrying a position across a model change would attribute one model's entry to another model's exit.",
+    "effective_sample_size": "Consecutive origins share 9 of 10 label days, so the 3367-origin series is worth roughly 336 independent observations. This does not change the purge \u2014 the purge is fixed by label overlap at the fold edge, not by dependence within a block \u2014 but it governs interpretation: confidence intervals and any significance test must use the effective count, not the origin count."
   }
 }
