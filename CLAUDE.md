@@ -18,7 +18,6 @@ Python project managed with `uv`. Python version is pinned to 3.12 (see `.python
 
 - Inside the container, call `python` directly. **Never `uv run`** — the working directory is the mounted repo, so it would reach for `/work/.venv`, which is the host's musl venv and will not execute.
 - ML dependencies live in `container/requirements.in`, locked to `container/requirements.txt` by `./container/lock.sh`. **Do not add them to `pyproject.toml`** — they cannot resolve on musl.
-- `--network=host` is required for podman here (tailscale DNS); `build.sh` and `run.sh` already pass it.
 
 ## Host environment
 

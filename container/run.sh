@@ -21,10 +21,6 @@ fi
 
 # Rootless podman maps the container's root to the invoking host user, so files
 # written to /work come back owned by that user with no --userns juggling.
-#
-# --network=host: this machine resolves DNS through tailscale (100.100.100.100),
-# which podman's own network namespace cannot reach. Needed for anything that
-# downloads at run time; harmless otherwise.
 if [ "$#" -eq 0 ]; then
     set -- /bin/bash
 fi
@@ -35,7 +31,6 @@ TTY_FLAG=""
 [ -t 0 ] && TTY_FLAG="-t"
 
 exec podman run --rm -i $TTY_FLAG \
-    --network=host \
     -v "$REPO":/work:rw \
     -w /work \
     "$IMAGE" "$@"
