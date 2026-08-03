@@ -1,6 +1,6 @@
 # TFT implementation stack selection (CPU-only)
 
-Date researched: 2026-08-02
+Date researched: 2026-08-02 · Recommendation exercised in the container 2026-08-03 (see Q7)
 
 Which Temporal Fusion Transformer implementation should this project use to predict a 10-step vector of
 forward Nifty-50 log returns from ~200 mostly-known-future Vedic-astrology ephemeris features, on a
@@ -578,12 +578,40 @@ matches the dispatch-bound analysis: at this model size CPU is genuinely competi
 of a GPU is not the constraint people assume. I found **no published CPU benchmark** for TFT at these
 shapes; the numbers above are derived, not measured.
 
-**I could not run a live benchmark in this sandbox.** `uv pip install pytorch-forecasting==1.8.0`
-succeeded, but importing torch failed with
+**No live benchmark was possible when this note was written.** `uv pip install
+pytorch-forecasting==1.8.0` succeeded, but importing torch failed with
 `OSError: Error relocating .../libgomp-a34b3233.so.1: pthread_attr_setaffinity_np: symbol not found` —
-this sandbox runs **musl libc 1.2.6**, and PyTorch ships only manylinux (glibc) wheels. If the real
-target box is also musl/Alpine, **torch will not install at all** and that is a blocker independent of
-library choice. Verify the target box is glibc before anything else.
+the host runs **musl libc 1.2.6** and PyTorch ships only manylinux (glibc) wheels. That blocker was
+filed as [#16](https://github.com/jenujari/prdict-pov-v1/issues/16) and is **resolved**: the pipeline
+runs in a podman container on glibc 2.36 with `torch==2.13.0+cpu` and `pytorch-forecasting==1.8.0`.
+See [`kb/runtime.md`](../runtime.md).
+
+### Measured, 2026-08-03 (container, 8 threads)
+
+The recommendation was exercised end to end at the project's shape — synthetic data, 6517 rows ×
+(60 known reals + 40 known categoricals), `max_encoder_length=60`, `max_prediction_length=10`,
+`hidden_size=16`, `hidden_continuous_size=8`, `attention_head_size=1`, `lstm_layers=1`,
+`batch_size=64`, `num_workers=0`, `QuantileLoss`:
+
+```
+samples 6448                       # 6517 - 60 - 10 + 1, as expected
+params 116781
+cat0 embedding rows 28 (declared 27)
+one epoch: 145.7s over 100 batches
+prediction shape (64, 10, 7)       # (batch, horizon, quantiles)
+```
+
+Three things this settles:
+
+- **~2.4 min/epoch on CPU** at `hidden_size=16`. A 100-epoch run is ~4 h; a walk-forward CV over
+  several folds is an overnight job, not an interactive one. The derived FLOP estimate above was in
+  the right order of magnitude, but treat 145 s as the number to plan against.
+- **The declared-cardinality mechanism works as claimed.** `cat0` was given 27 declared levels via a
+  pre-fitted `NaNLabelEncoder(add_nan=True)` while the data only ever contained 25 of them; the
+  embedding table came out with **28** rows — 27 declared plus the reserved NaN row — and
+  `from_dataset` did not re-fit the encoder. This is the exact requirement Darts and NeuralForecast
+  fail.
+- **The 10-step multi-horizon output is direct**, `(64, 10, 7)` in one forward pass.
 
 ### Concrete config advice
 
@@ -741,10 +769,12 @@ hand-built level→index map. Do not build toward this now.
 
 ## Open questions / verify by prototype
 
-1. **glibc vs musl on the real training box.** The research sandbox is musl (Alpine); PyTorch ships
-   manylinux/glibc wheels only and `import torch` fails there. Confirm the target box before anything.
-2. **Real wall-clock.** The Q7 numbers are derived from source-level parameter/MAC arithmetic, not
-   measured. Run one epoch on set 2 at `hidden_size=16, batch_size=64` and calibrate.
+1. ~~**glibc vs musl on the real training box.**~~ **Closed** by
+   [#16](https://github.com/jenujari/prdict-pov-v1/issues/16) — the pipeline runs in a glibc 2.36
+   container, `torch==2.13.0+cpu`. See [`kb/runtime.md`](../runtime.md).
+2. ~~**Real wall-clock.**~~ **Measured 2026-08-03** — 145.7 s/epoch at `hidden_size=16,
+   batch_size=64`, 8 threads, on synthetic data at the project's shape. See Q7 above. Still worth
+   re-measuring on the real set 1 / set 2 once they exist, since column counts differ.
 3. **10 vs 30 decoder steps.** Whether to set `max_prediction_length=30` (and score the first 10) so the
    full 30-step known-future astro window is consumed, versus `max_prediction_length=10` plus explicit
    lead-features. Costs +28 % VSN FLOPs; unknown value.
