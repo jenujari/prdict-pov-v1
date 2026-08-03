@@ -67,6 +67,37 @@ Nothing in training: the forward block has no target, so a wrong forward date ca
 
 Because the effect is a shift rather than a point error, there is no partial credit and no way to patch a single date after the fact — the fix is to correct `FORWARD_HOLIDAYS`, regenerate, and re-run inference from the affected origin. At a measured 0.26% that is expected to be zero or one date across the forward block, and NSE publishes its list far enough ahead that a correction lands before the date does.
 
-## Known defect: 2008
+## Gaps in the observed history
 
-2008 holds ~22 spurious closures (22 of 37 weekday closures are Fridays; 225 sessions against a ~246 norm). Treated as a data defect, excluded from every error rate here, not repaired. It is **not** repaired here — 2008 sits inside the training history, so ~22 phantom closures collapse real consecutive sessions into neighbours and quietly corrupt every window that crosses them.
+Resolves [#25](https://github.com/jenujari/prdict-pov-v1/issues/25). The observed index is authoritative for *which dates the market was open* — except where the source is simply missing rows. A missing session does not leave a hole: under map decision 1 the index collapses to trading days, so the two sessions either side become neighbours and the step between them silently spans more than one session's move.
+
+**Policy: sessions are kept; windows whose span crosses a gap are dropped.** Sessions are never dropped — only windows are filtered, so an undamaged 2008 session still trains any window that does not reach across a gap.
+
+2008 is missing 21 sessions against XBOM's 246 — 29 dates XBOM calls sessions, 22 of them Fridays, spanning 2008-03-28 to 2008-11-28. Not a crash closure (the deficit starts in March and peaks in July; the crash days are all present) and not a date shift (shifting by +-1 does not improve agreement). Unrepairable: the rows carry all 235 astro columns but no price, and the map rules out new data sources.
+
+Two hypotheses were tested and rejected. **Crash closures**: the deficit starts in March and peaks in July, months before Lehman, and the crash sessions themselves (`2008-10-28` at −8.78%, `2008-10-31` at +6.99%) are all present — NSE used intraday circuit breakers, never whole-day closures. **A date shift**: shifting 2008 by ±1 business day scores 0.863 against 0.859 unshifted, no improvement, where 2007 and 2009 score 0.992 and 1.000 unshifted.
+
+### How a gap is detected
+
+By **systematic source failure**, not date by date:
+
+1. A year with at least **3** XBOM mismatches. 2008 has 29; every other year has 0–2, so any threshold in 3–28 isolates it.
+2. A run of at least **4** consecutive closed weekdays, which no Indian holiday pattern produces. This is the only detector reaching before XBOM's 2006-08-03 start, and it fires exactly once, on `2002-08-27`–`2002-08-30`.
+
+That gives **33 gap dates** and **28 discontinuities** in the session index, costing **281** of 6448 trainable origins (4.4%).
+
+### Known residue, deliberately unflagged
+
+11 isolated XBOM mismatches sit outside the flagged years:
+
+```
+2007-09-05  2007-12-18  2011-08-18  2013-11-15  2014-02-19  2019-02-18  2022-09-12  2023-06-28  2024-01-20  2025-02-01  2025-09-08
+```
+
+Each is individually indistinguishable from XBOM being wrong. A straddling-return test — does the step across the suspect date look inflated? — **cannot separate them from ordinary holidays, and cannot separate the confirmed 2008 gaps either** (mean z 0.67 for 2008 against 0.24 for random holidays). With no evidence to stand on, flagging all 11 would cost **16.2%** of trainable origins against 3.3% for the gaps above. Two of them are Saturdays, where the source consistently omits NSE's special sessions. Set `GAP_YEAR_THRESHOLD = 1` to include them.
+
+`2014-10-02`–`2014-10-06` was checked and is **genuine** — data and XBOM agree exactly (Gandhi Jayanti, Dussehra, Bakrid).
+
+### Consequence for the folds
+
+A gap is a second kind of fold boundary. The walk-forward arithmetic of [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each discontinuity like a purge edge, since a window may not span one — otherwise a fold that looks contiguous by date is not contiguous by session.

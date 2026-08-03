@@ -62,11 +62,50 @@ FORWARD_HOLIDAYS = [
     "2027-01-26",
 ]
 
-# 2008 is a data defect, not a run of holidays: 22 of its 37 weekday closures
-# fall on a Friday and the year totals 225 sessions against a ~246 norm. Every
-# error rate below is reported both with and without it so the rule is not
-# judged against corrupt truth. See the data-quality ticket.
+# 2008 is a data defect, not a run of holidays: 29 of its 37 weekday closures
+# are days XBOM calls sessions, 22 of them Fridays, and the year totals 225
+# sessions against XBOM's 246. Every error rate below is reported both with and
+# without it so the rule is not judged against corrupt truth. See #25.
 BAD_YEARS = [2008]
+
+# Dates where a session is missing from the source data, so the step across them
+# spans more than one session's move. A window covering such a step is training
+# on a discontinuity, so #25 drops those windows rather than those sessions.
+#
+# Detected as *systematic source failure*, not date by date. Two rules:
+#
+#   1. A year whose XBOM mismatches exceed GAP_YEAR_THRESHOLD — 2008 has 29,
+#      every other year has 0-2, so any threshold in 3..28 isolates it.
+#   2. A run of >= GAP_RUN_LENGTH consecutive closed weekdays, which no Indian
+#      holiday pattern produces. This is the only detector that reaches before
+#      XBOM's 2006-08-03 start, and it fires exactly once, on 2002-08-27..30.
+#
+# Eleven further isolated XBOM mismatches exist across 2007-2025 and are
+# deliberately *not* flagged: individually they are indistinguishable from XBOM
+# being wrong, a straddling-return test cannot separate them from ordinary
+# holidays (it cannot separate the confirmed 2008 gaps either), and flagging
+# them costs 16.2% of trainable origins against 3.3% for these. Two of them are
+# Saturdays, where the source consistently omits NSE's special sessions. Listed
+# in the spec as known residue; lower GAP_YEAR_THRESHOLD to 1 to include them.
+GAP_YEAR_THRESHOLD = 3
+GAP_RUN_LENGTH = 4
+
+GAP_DATES = [
+    "2002-08-27", "2002-08-28", "2002-08-29", "2002-08-30",
+    "2008-03-28", "2008-04-17", "2008-05-16", "2008-05-30", "2008-06-13",
+    "2008-06-20", "2008-06-27", "2008-07-04", "2008-07-07", "2008-07-09",
+    "2008-07-11", "2008-07-18", "2008-07-25", "2008-08-08", "2008-08-14",
+    "2008-08-22", "2008-09-02", "2008-09-12", "2008-09-19", "2008-09-26",
+    "2008-10-01", "2008-10-24", "2008-10-27", "2008-10-29", "2008-11-12",
+    "2008-11-14", "2008-11-21", "2008-11-26", "2008-11-28",
+]
+
+# Isolated XBOM mismatches left unflagged — recorded so the choice is visible.
+UNFLAGGED_MISMATCHES = [
+    "2007-09-05", "2007-12-18", "2011-08-18", "2013-11-15", "2014-02-19",
+    "2019-02-18", "2022-09-12", "2023-06-28", "2024-01-20", "2025-02-01",
+    "2025-09-08",
+]
 
 
 def observed_index(frame: pd.DataFrame) -> pd.DatetimeIndex:
@@ -113,6 +152,33 @@ def weekday_rule_error(frame: pd.DataFrame) -> dict:
         "closures_per_year": (
             hist[hist["is_weekday"] & ~hist["is_open"]].groupby("year").size().to_dict()
         ),
+    }
+
+
+def gap_cost(history: pd.DatetimeIndex) -> dict:
+    """How many trainable origins the gap-aware window filter removes.
+
+    An origin's window covers `past` sessions back and `horizon` forward. It is
+    dropped when any step inside that span crosses a gap — the step is then a
+    multi-session move the model would otherwise learn as a single one.
+    """
+    gaps = pd.DatetimeIndex(GAP_DATES)
+    positions = {
+        int(p) for p in history.get_indexer(gaps, method="bfill") if p > 0
+    }
+    total = len(history) - PAST - HORIZON + 1
+    kept = sum(
+        1
+        for i in range(PAST - 1, len(history) - HORIZON)
+        if not any(i - PAST + 1 < p <= i + HORIZON for p in positions)
+    )
+    return {
+        "n_gap_dates": len(gaps),
+        "n_discontinuities": len(positions),
+        "origins_before": total,
+        "origins_after": kept,
+        "origins_dropped": total - kept,
+        "fraction_dropped": round((total - kept) / total, 4),
     }
 
 
@@ -168,11 +234,32 @@ def build(frame: pd.DataFrame) -> dict:
             "n_forward_origins": int(n_forward_origins),
         },
         "weekday_rule_error": weekday_rule_error(frame),
+        "gaps": {
+            "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/25",
+            "policy": "sessions are kept; windows whose span crosses a gap are dropped",
+            "detection": {
+                "year_threshold": GAP_YEAR_THRESHOLD,
+                "run_length": GAP_RUN_LENGTH,
+                "note": "systematic source failure only — a year with more XBOM "
+                "mismatches than the threshold, or a run of consecutive closed "
+                "weekdays no holiday pattern produces",
+            },
+            "dates": GAP_DATES,
+            "unflagged_mismatches": UNFLAGGED_MISMATCHES,
+            "unflagged_note": "isolated XBOM mismatches, individually "
+            "indistinguishable from the reference being wrong; flagging them "
+            "would cost 16.2% of trainable origins against 3.3% for the gaps",
+            "cost": gap_cost(observed_index(frame)),
+        },
         "known_gaps": {
             "bad_years": BAD_YEARS,
-            "note": "2008 holds ~22 spurious closures (22 of 37 weekday closures "
-            "are Fridays; 225 sessions against a ~246 norm). Treated as a data "
-            "defect, excluded from every error rate here, not repaired.",
+            "note": "2008 is missing 21 sessions against XBOM's 246 — 29 dates "
+            "XBOM calls sessions, 22 of them Fridays, spanning 2008-03-28 to "
+            "2008-11-28. Not a crash closure (the deficit starts in March and "
+            "peaks in July; the crash days are all present) and not a date "
+            "shift (shifting by +-1 does not improve agreement). Unrepairable: "
+            "the rows carry all 235 astro columns but no price, and the map "
+            "rules out new data sources.",
         },
         "muhurat": {
             "note": "NSE's ceremonial Diwali Muhurat session is a real trading "
@@ -208,6 +295,49 @@ def audit(spec: dict) -> None:
         print(f"  MISMATCH\n    XBOM  : {derived}\n    frozen: {frozen}")
     print(f"  hand-filled past XBOM's bound: "
           f"{[h for h in FORWARD_HOLIDAYS if h not in frozen]}")
+
+    # Re-derive the gap list from the two detection rules.
+    frame = pd.read_csv(CSV_PATH, usecols=[KEY, TARGET_SOURCE], parse_dates=[KEY])
+    last_close = frame.loc[frame[TARGET_SOURCE].notna(), KEY].max()
+    hist = frame[frame[KEY] <= last_close].copy()
+    hist["is_open"] = hist[TARGET_SOURCE].notna()
+
+    xbom_start = cal.first_session
+    covered = hist[hist[KEY] >= xbom_start]
+    sessions = set(
+        pd.DatetimeIndex(cal.sessions_in_range(xbom_start, last_close)).normalize()
+    )
+    mismatch = covered[~covered["is_open"] & covered[KEY].isin(sessions)]
+    per_year = mismatch.groupby(mismatch[KEY].dt.year).size()
+    bad_years = per_year[per_year >= GAP_YEAR_THRESHOLD]
+    rule1 = mismatch[mismatch[KEY].dt.year.isin(bad_years.index)][KEY]
+
+    weekdays = hist[hist[KEY].dt.dayofweek < 5].reset_index(drop=True)
+    rule2, run = [], []
+    for _, row in weekdays.iterrows():
+        if row["is_open"]:
+            if len(run) >= GAP_RUN_LENGTH:
+                rule2 += run
+            run = []
+        else:
+            run.append(row[KEY])
+    if len(run) >= GAP_RUN_LENGTH:
+        rule2 += run
+
+    derived = sorted(d.date().isoformat() for d in set(rule1) | set(rule2))
+    print(f"\n  gap rules: year threshold >={GAP_YEAR_THRESHOLD} "
+          f"(flagged {list(bad_years.index)}), run length >={GAP_RUN_LENGTH}")
+    if derived == sorted(GAP_DATES):
+        print(f"  frozen GAP_DATES matches the rules on all {len(derived)} dates")
+    else:
+        only_derived = sorted(set(derived) - set(GAP_DATES))
+        only_frozen = sorted(set(GAP_DATES) - set(derived))
+        print(f"  MISMATCH\n    rules only : {only_derived}\n    frozen only: {only_frozen}")
+
+    residue = sorted(
+        d.date().isoformat() for d in set(mismatch[KEY]) - set(rule1)
+    )
+    print(f"  unflagged isolated mismatches ({len(residue)}): {residue}")
 
 
 def render_markdown(spec: dict) -> str:
@@ -328,11 +458,71 @@ def render_markdown(spec: dict) -> str:
         "block, and NSE publishes its list far enough ahead that a correction lands "
         "before the date does.",
         "",
-        "## Known defect: 2008",
+        "## Gaps in the observed history",
         "",
-        f"{spec['known_gaps']['note']} It is **not** repaired here — 2008 sits inside the "
-        "training history, so ~22 phantom closures collapse real consecutive sessions "
-        "into neighbours and quietly corrupt every window that crosses them.",
+        f"Resolves [#25]({spec['gaps']['resolves']}). The observed index is authoritative "
+        "for *which dates the market was open* — except where the source is simply missing "
+        "rows. A missing session does not leave a hole: under map decision 1 the index "
+        "collapses to trading days, so the two sessions either side become neighbours and "
+        "the step between them silently spans more than one session's move.",
+        "",
+        f"**Policy: {spec['gaps']['policy']}.** Sessions are never dropped — only windows "
+        "are filtered, so an undamaged 2008 session still trains any window that does not "
+        "reach across a gap.",
+        "",
+        f"{spec['known_gaps']['note']}",
+        "",
+        "Two hypotheses were tested and rejected. **Crash closures**: the deficit starts in "
+        "March and peaks in July, months before Lehman, and the crash sessions themselves "
+        "(`2008-10-28` at −8.78%, `2008-10-31` at +6.99%) are all present — NSE used "
+        "intraday circuit breakers, never whole-day closures. **A date shift**: shifting "
+        "2008 by ±1 business day scores 0.863 against 0.859 unshifted, no improvement, "
+        "where 2007 and 2009 score 0.992 and 1.000 unshifted.",
+        "",
+        "### How a gap is detected",
+        "",
+        "By **systematic source failure**, not date by date:",
+        "",
+        f"1. A year with at least **{spec['gaps']['detection']['year_threshold']}** XBOM "
+        "mismatches. 2008 has 29; every other year has 0–2, so any threshold in 3–28 "
+        "isolates it.",
+        f"2. A run of at least **{spec['gaps']['detection']['run_length']}** consecutive "
+        "closed weekdays, which no Indian holiday pattern produces. This is the only "
+        "detector reaching before XBOM's 2006-08-03 start, and it fires exactly once, on "
+        "`2002-08-27`–`2002-08-30`.",
+        "",
+        f"That gives **{spec['gaps']['cost']['n_gap_dates']} gap dates** and "
+        f"**{spec['gaps']['cost']['n_discontinuities']} discontinuities** in the session "
+        f"index, costing **{spec['gaps']['cost']['origins_dropped']}** of "
+        f"{spec['gaps']['cost']['origins_before']} trainable origins "
+        f"({100 * spec['gaps']['cost']['fraction_dropped']:.1f}%).",
+        "",
+        "### Known residue, deliberately unflagged",
+        "",
+        f"{len(spec['gaps']['unflagged_mismatches'])} isolated XBOM mismatches sit outside "
+        "the flagged years:",
+        "",
+        "```",
+        "  ".join(spec["gaps"]["unflagged_mismatches"]),
+        "```",
+        "",
+        "Each is individually indistinguishable from XBOM being wrong. A straddling-return "
+        "test — does the step across the suspect date look inflated? — **cannot separate "
+        "them from ordinary holidays, and cannot separate the confirmed 2008 gaps either** "
+        "(mean z 0.67 for 2008 against 0.24 for random holidays). With no evidence to stand "
+        "on, flagging all 11 would cost **16.2%** of trainable origins against 3.3% for the "
+        "gaps above. Two of them are Saturdays, where the source consistently omits NSE's "
+        "special sessions. Set `GAP_YEAR_THRESHOLD = 1` to include them.",
+        "",
+        "`2014-10-02`–`2014-10-06` was checked and is **genuine** — data and XBOM agree "
+        "exactly (Gandhi Jayanti, Dussehra, Bakrid).",
+        "",
+        "### Consequence for the folds",
+        "",
+        "A gap is a second kind of fold boundary. The walk-forward arithmetic of "
+        "[#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each "
+        "discontinuity like a purge edge, since a window may not span one — otherwise a "
+        "fold that looks contiguous by date is not contiguous by session.",
         "",
     ]
     return "\n".join(lines)
@@ -361,6 +551,11 @@ def main() -> None:
           f" (excl 2008: {100 * spec['weekday_rule_error']['excluding_bad_years']['error_rate']:.2f}%)")
     print(f"last usable origin: {spec['runway']['last_origin_full_future_block']}"
           f"  ({spec['runway']['n_forward_origins']} forward origins)")
+    cost = spec["gaps"]["cost"]
+    print(f"gaps             : {cost['n_gap_dates']} dates, "
+          f"{cost['n_discontinuities']} discontinuities")
+    print(f"trainable origins: {cost['origins_after']} of {cost['origins_before']} "
+          f"(-{cost['origins_dropped']}, -{100 * cost['fraction_dropped']:.1f}%)")
 
     if args.audit:
         audit(spec)

@@ -33,6 +33,8 @@ class TradingCalendar:
     past: int
     future: int
     horizon: int
+    gaps: pd.DatetimeIndex
+    discontinuities: frozenset[int]
 
     @property
     def history(self) -> pd.DatetimeIndex:
@@ -55,6 +57,15 @@ class TradingCalendar:
     def is_session(self, day: pd.Timestamp | str) -> bool:
         return self.sessions.get_indexer([pd.Timestamp(day)])[0] != -1
 
+    def spans_gap(self, first: int, last: int) -> bool:
+        """Whether the session range `[first, last]` steps across a gap.
+
+        A discontinuity is recorded at the position *after* a missing session,
+        so the range is damaged when one falls in `(first, last]` — the step
+        into it is the one that spans more than a single session's move.
+        """
+        return any(first < p <= last for p in self.discontinuities)
+
     def origins(self, *, forward_steps: int | None = None) -> pd.DatetimeIndex:
         """Sessions usable as a window origin — the last day of the encoder block.
 
@@ -62,9 +73,19 @@ class TradingCalendar:
         `forward_steps` sessions strictly after it. `forward_steps` defaults to
         the full known-covariate block; pass `horizon` instead to ask only for
         the sessions the target actually spans.
+
+        Origins whose window crosses a gap are excluded: under map decision 1
+        the index has no holes, so a missing session turns one step into a
+        multi-session move that the model would otherwise learn as normal. #25
+        drops the window, never the session — an undamaged session still trains
+        every window that does not reach across a gap.
         """
         ahead = self.future if forward_steps is None else forward_steps
-        return self.sessions[self.past - 1 : len(self.sessions) - ahead]
+        candidates = range(self.past - 1, len(self.sessions) - ahead)
+        keep = [
+            i for i in candidates if not self.spans_gap(i - self.past + 1, i + ahead)
+        ]
+        return self.sessions[keep]
 
     def trainable_origins(self) -> pd.DatetimeIndex:
         """Origins whose whole target horizon has an observed close.
@@ -94,6 +115,11 @@ class TradingCalendar:
                 f"{pd.Timestamp(origin).date()} has no full future-{self.future} block "
                 f"— the last such origin is {self.origins()[-1].date()}"
             )
+        if self.spans_gap(i - self.past + 1, i + self.future):
+            raise ValueError(
+                f"the window at {pd.Timestamp(origin).date()} crosses a gap in the "
+                "source data — see the gaps section of kb/trading_calendar.md"
+            )
         return {
             "past": self.sessions[i - self.past + 1 : i + 1],
             "future": self.sessions[i + 1 : i + 1 + self.future],
@@ -107,13 +133,24 @@ def load_calendar(path: Path = CALENDAR_PATH) -> TradingCalendar:
     frame = frame.sort_values("record_date")
     history = pd.DatetimeIndex(frame.loc[frame["c"].notna(), "record_date"])
     forward = pd.DatetimeIndex(raw["forward"]["sessions"])
+    sessions = history.append(forward)
+
+    # A gap date is a session missing from the source, so the discontinuity sits
+    # at the first surviving session after it — that is the step that spans more
+    # than one session's move.
+    gaps = pd.DatetimeIndex(raw["gaps"]["dates"])
+    positions = frozenset(
+        int(p) for p in sessions.get_indexer(gaps, method="bfill") if p > 0
+    )
 
     return TradingCalendar(
-        sessions=history.append(forward),
+        sessions=sessions,
         n_history=len(history),
         past=raw["index"]["past"],
         future=raw["index"]["future"],
         horizon=raw["index"]["horizon"],
+        gaps=gaps,
+        discontinuities=positions,
     )
 
 
@@ -140,9 +177,17 @@ def main() -> None:
     print(f"  forward      : {len(cal.forward)}  ending {cal.forward[-1].date()}")
     print(f"windows        : past {cal.past} / future {cal.future} / horizon {cal.horizon}")
 
+    print(f"gaps           : {len(cal.gaps)} dates, "
+          f"{len(cal.discontinuities)} discontinuities")
+
     train, fwd = cal.trainable_origins(), cal.forward_origins()
     print(f"trainable origins: {len(train)}  {train[0].date()} → {train[-1].date()}")
     print(f"forward origins  : {len(fwd)}  {fwd[0].date()} → {fwd[-1].date()}")
+
+    # No surviving window may step across a gap.
+    leaks = [d for d in train if cal.spans_gap(
+        cal.position(d) - cal.past + 1, cal.position(d) + cal.horizon)]
+    print(f"trainable origins whose window crosses a gap: {len(leaks)}")
 
     last = cal.window(fwd[-1])
     print(f"\nlast forward window, origin {fwd[-1].date()}")
