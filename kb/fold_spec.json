@@ -1,0 +1,106 @@
+{
+  "generated": "2026-08-03",
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/10",
+  "geometry": "expanding_window",
+  "total_trainable_origins": 6448,
+  "holdout": {
+    "start_date": "2024-01-01",
+    "end_date": "2026-06-15",
+    "origins_count": 601,
+    "policy": "Strictly untouched final holdout set containing post-2023 market regimes."
+  },
+  "walk_forward": {
+    "n_folds": 5,
+    "total_val_pool_origins": 5847,
+    "total_val_scored_origins": 3393,
+    "folds": [
+      {
+        "fold": 1,
+        "train_start": "2000-03-29",
+        "train_end": "2010-03-17",
+        "train_origins_count": 2445,
+        "val_start": "2010-04-01",
+        "val_end": "2012-12-19",
+        "val_origins_count": 678,
+        "purge_pre_sessions": 10,
+        "embargo_post_sessions": 69
+      },
+      {
+        "fold": 2,
+        "train_start": "2000-03-29",
+        "train_end": "2012-12-06",
+        "train_origins_count": 3123,
+        "val_start": "2012-12-20",
+        "val_end": "2015-09-22",
+        "val_origins_count": 678,
+        "purge_pre_sessions": 10,
+        "embargo_post_sessions": 69
+      },
+      {
+        "fold": 3,
+        "train_start": "2000-03-29",
+        "train_end": "2015-09-08",
+        "train_origins_count": 3801,
+        "val_start": "2015-09-23",
+        "val_end": "2018-06-22",
+        "val_origins_count": 678,
+        "purge_pre_sessions": 10,
+        "embargo_post_sessions": 69
+      },
+      {
+        "fold": 4,
+        "train_start": "2000-03-29",
+        "train_end": "2018-06-11",
+        "train_origins_count": 4479,
+        "val_start": "2018-06-25",
+        "val_end": "2021-03-24",
+        "val_origins_count": 678,
+        "purge_pre_sessions": 10,
+        "embargo_post_sessions": 69
+      },
+      {
+        "fold": 5,
+        "train_start": "2000-03-29",
+        "train_end": "2021-03-10",
+        "train_origins_count": 5157,
+        "val_start": "2021-03-25",
+        "val_end": "2023-12-29",
+        "val_origins_count": 681,
+        "purge_pre_sessions": 10,
+        "embargo_post_sessions": 69
+      }
+    ]
+  },
+  "purge_embargo_arithmetic": {
+    "purge_pre_sessions": 10,
+    "purge_reason": "10 sessions (target horizon) to eliminate direct target label leakage from train into val.",
+    "embargo_post_sessions": 69,
+    "embargo_reason": "69 sessions (60 encoder lookback + 9 label overlap) for 100% complete row-level independence."
+  },
+  "in_fold_fits": [
+    {
+      "stage": "Scaler",
+      "description": "StandardScaler / RobustScaler fitted strictly on training fold origins."
+    },
+    {
+      "stage": "Correlation Prune",
+      "description": "Pairwise correlation matrix (|r| >= 0.95) computed strictly on training fold origins."
+    },
+    {
+      "stage": "Feature Ranking",
+      "description": "Mutual Information / Spearman correlation ranking computed strictly on training fold origins."
+    },
+    {
+      "stage": "PCA",
+      "description": "Principal Component Analysis (n_components=0.95) fitted strictly on scaled training fold features."
+    },
+    {
+      "stage": "Data-Dependent Redundancy / Variance Filter",
+      "description": "Any empirical zero-variance or empirical redundancy filtering evaluated strictly inside each training fold."
+    }
+  ],
+  "fold_reporting": {
+    "concatenated_series": "Out-of-sample predictions across 5 validation folds (3393 origins) concatenated into one continuous time-series for trading simulation.",
+    "aggregated_metrics": "Per-fold metrics (Sharpe, max drawdown, win rate) reported as mean +- std across all 5 folds."
+  }
+}
