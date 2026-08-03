@@ -63,13 +63,9 @@ This project therefore has **two** dependency manifests. `pyproject.toml` + `uv.
 
 ## Gotchas
 
-**`--network=host` is required**, for both build and run. This machine resolves DNS through tailscale (`nameserver 100.100.100.100`), which podman's own network namespace cannot reach. Without it the base-image pull fails:
+**`--network=host` was required, and no longer is.** Podman on this machine used to inherit the host's tailscale resolver (`nameserver 100.100.100.100`) into a network namespace that could not reach it, so the base-image pull failed with `lookup ghcr.io on 100.100.100.100:53: no such host` and both scripts passed `--network=host` to work around it. The host DNS configuration was fixed on 2026-08-03 — containers now get `8.8.8.8` / `1.1.1.1` in their own namespace. Verified: DNS, an HTTPS fetch to PyPI, and a `podman build` that installs from PyPI all succeed with no network flag.
 
-```
-lookup ghcr.io on 100.100.100.100:53: no such host
-```
-
-Both `build.sh` and `run.sh` pass it already.
+The flag has been dropped from `build.sh` and `run.sh`, so the container runs in its own network namespace again. If a pull or a build ever fails on DNS, check the host's resolver before reaching for `--network=host`.
 
 **Never call `uv run` inside the container.** The working directory is the mounted repo, so `uv run` would try to sync against `pyproject.toml` and either fight the image's pinned environment or reach for `/work/.venv` — which is the host's **musl** venv and will not execute. `UV_PROJECT_ENVIRONMENT=/opt/venv` is set in the image as a guard, but the rule is simply: call `python` directly. It resolves to `/opt/venv/bin/python` via `PATH`.
 
