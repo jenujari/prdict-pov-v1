@@ -1,0 +1,794 @@
+{
+  "resolves": 7,
+  "source": {
+    "csv": "nft50.csv",
+    "n_rows": 9893
+  },
+  "conventions": {
+    "formula": "theta = 2*pi*(value - origin) / period; emit sin(theta), cos(theta)",
+    "naming": "<stem>_sin and <stem>_cos; a pair is exactly the two columns sharing a stem",
+    "raw_angle_survives": false,
+    "pairs_are_atomic": true,
+    "pair_atomicity_note": "Feature selection (#12) and PCA (#13) must keep or drop a (sin, cos) pair together, scoring it by the better of its two members. A lone half is not a weaker encoding of the angle but a wrong one: sin alone identifies theta with 180 - theta, cos alone identifies theta with -theta."
+  },
+  "dropped_redundant": {
+    "ketu_longitude": "Ketu is antipodal to Rahu by construction, so this column is `rahu_longitude` + 180 on every row; its sin/cos pair is the exact negation of `rahu_longitude`'s and carries no independent information.",
+    "sun_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `sun_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `sun_rahu_dist`'s and carries no independent information.",
+    "moon_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `moon_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `moon_rahu_dist`'s and carries no independent information.",
+    "mars_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `mars_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `mars_rahu_dist`'s and carries no independent information.",
+    "mercury_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `mercury_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `mercury_rahu_dist`'s and carries no independent information.",
+    "jupiter_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `jupiter_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `jupiter_rahu_dist`'s and carries no independent information.",
+    "venus_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `venus_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `venus_rahu_dist`'s and carries no independent information.",
+    "saturn_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `saturn_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `saturn_rahu_dist`'s and carries no independent information."
+  },
+  "transforms": [
+    {
+      "source": "tithy",
+      "family": "tithy",
+      "stem": "tithy",
+      "value": "column",
+      "period": 30.0,
+      "origin": 1.0,
+      "note": "Lunar day: a 12-degree quantisation of the Moon-Sun elongation, 1-indexed.",
+      "replaces_source": true,
+      "emits": [
+        "tithy_sin",
+        "tithy_cos"
+      ]
+    },
+    {
+      "source": "sun_longitude",
+      "family": "longitude",
+      "stem": "sun_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "sun_longitude_sin",
+        "sun_longitude_cos"
+      ]
+    },
+    {
+      "source": "sun_nakshatra_pada",
+      "family": "pada",
+      "stem": "sun_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "sun_nakshatra_pada_sin",
+        "sun_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "moon_longitude",
+      "family": "longitude",
+      "stem": "moon_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "moon_longitude_sin",
+        "moon_longitude_cos"
+      ]
+    },
+    {
+      "source": "moon_nakshatra_pada",
+      "family": "pada",
+      "stem": "moon_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "moon_nakshatra_pada_sin",
+        "moon_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "saturn_longitude",
+      "family": "longitude",
+      "stem": "saturn_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "saturn_longitude_sin",
+        "saturn_longitude_cos"
+      ]
+    },
+    {
+      "source": "saturn_nakshatra_pada",
+      "family": "pada",
+      "stem": "saturn_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "saturn_nakshatra_pada_sin",
+        "saturn_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "venus_longitude",
+      "family": "longitude",
+      "stem": "venus_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "venus_longitude_sin",
+        "venus_longitude_cos"
+      ]
+    },
+    {
+      "source": "venus_nakshatra_pada",
+      "family": "pada",
+      "stem": "venus_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "venus_nakshatra_pada_sin",
+        "venus_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "mercury_longitude",
+      "family": "longitude",
+      "stem": "mercury_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "mercury_longitude_sin",
+        "mercury_longitude_cos"
+      ]
+    },
+    {
+      "source": "mercury_nakshatra_pada",
+      "family": "pada",
+      "stem": "mercury_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "mercury_nakshatra_pada_sin",
+        "mercury_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "jupiter_longitude",
+      "family": "longitude",
+      "stem": "jupiter_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "jupiter_longitude_sin",
+        "jupiter_longitude_cos"
+      ]
+    },
+    {
+      "source": "jupiter_nakshatra_pada",
+      "family": "pada",
+      "stem": "jupiter_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "jupiter_nakshatra_pada_sin",
+        "jupiter_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "rahu_longitude",
+      "family": "longitude",
+      "stem": "rahu_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "rahu_longitude_sin",
+        "rahu_longitude_cos"
+      ]
+    },
+    {
+      "source": "rahu_nakshatra_pada",
+      "family": "pada",
+      "stem": "rahu_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "rahu_nakshatra_pada_sin",
+        "rahu_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "ketu_nakshatra_pada",
+      "family": "pada",
+      "stem": "ketu_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "ketu_nakshatra_pada_sin",
+        "ketu_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "mars_longitude",
+      "family": "longitude",
+      "stem": "mars_longitude",
+      "value": "column",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "Sidereal longitude on the full circle.",
+      "replaces_source": true,
+      "emits": [
+        "mars_longitude_sin",
+        "mars_longitude_cos"
+      ]
+    },
+    {
+      "source": "mars_nakshatra_pada",
+      "family": "pada",
+      "stem": "mars_nakshatra_pada",
+      "value": "column",
+      "period": 4.0,
+      "origin": 1.0,
+      "note": "Quarter of a nakshatra, 1-indexed; wraps 4 -> 1 at the nakshatra boundary.",
+      "replaces_source": true,
+      "emits": [
+        "mars_nakshatra_pada_sin",
+        "mars_nakshatra_pada_cos"
+      ]
+    },
+    {
+      "source": "sun_mars_dist",
+      "family": "separation",
+      "stem": "sun_mars_sep",
+      "value": "signed_separation",
+      "from": "sun",
+      "to": "mars",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`mars_longitude` - `sun_longitude`) mod 360. The file's `sun_mars_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "sun_mars_sep_sin",
+        "sun_mars_sep_cos"
+      ]
+    },
+    {
+      "source": "sun_mercury_dist",
+      "family": "separation",
+      "stem": "sun_mercury_sep",
+      "value": "signed_separation",
+      "from": "sun",
+      "to": "mercury",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`mercury_longitude` - `sun_longitude`) mod 360. The file's `sun_mercury_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "sun_mercury_sep_sin",
+        "sun_mercury_sep_cos"
+      ]
+    },
+    {
+      "source": "sun_jupiter_dist",
+      "family": "separation",
+      "stem": "sun_jupiter_sep",
+      "value": "signed_separation",
+      "from": "sun",
+      "to": "jupiter",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `sun_longitude`) mod 360. The file's `sun_jupiter_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "sun_jupiter_sep_sin",
+        "sun_jupiter_sep_cos"
+      ]
+    },
+    {
+      "source": "sun_venus_dist",
+      "family": "separation",
+      "stem": "sun_venus_sep",
+      "value": "signed_separation",
+      "from": "sun",
+      "to": "venus",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`venus_longitude` - `sun_longitude`) mod 360. The file's `sun_venus_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "sun_venus_sep_sin",
+        "sun_venus_sep_cos"
+      ]
+    },
+    {
+      "source": "sun_saturn_dist",
+      "family": "separation",
+      "stem": "sun_saturn_sep",
+      "value": "signed_separation",
+      "from": "sun",
+      "to": "saturn",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`saturn_longitude` - `sun_longitude`) mod 360. The file's `sun_saturn_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "sun_saturn_sep_sin",
+        "sun_saturn_sep_cos"
+      ]
+    },
+    {
+      "source": "sun_rahu_dist",
+      "family": "separation",
+      "stem": "sun_rahu_sep",
+      "value": "signed_separation",
+      "from": "sun",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `sun_longitude`) mod 360. The file's `sun_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "sun_rahu_sep_sin",
+        "sun_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "moon_mars_dist",
+      "family": "separation",
+      "stem": "moon_mars_sep",
+      "value": "signed_separation",
+      "from": "moon",
+      "to": "mars",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`mars_longitude` - `moon_longitude`) mod 360. The file's `moon_mars_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "moon_mars_sep_sin",
+        "moon_mars_sep_cos"
+      ]
+    },
+    {
+      "source": "moon_mercury_dist",
+      "family": "separation",
+      "stem": "moon_mercury_sep",
+      "value": "signed_separation",
+      "from": "moon",
+      "to": "mercury",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`mercury_longitude` - `moon_longitude`) mod 360. The file's `moon_mercury_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "moon_mercury_sep_sin",
+        "moon_mercury_sep_cos"
+      ]
+    },
+    {
+      "source": "moon_jupiter_dist",
+      "family": "separation",
+      "stem": "moon_jupiter_sep",
+      "value": "signed_separation",
+      "from": "moon",
+      "to": "jupiter",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `moon_longitude`) mod 360. The file's `moon_jupiter_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "moon_jupiter_sep_sin",
+        "moon_jupiter_sep_cos"
+      ]
+    },
+    {
+      "source": "moon_venus_dist",
+      "family": "separation",
+      "stem": "moon_venus_sep",
+      "value": "signed_separation",
+      "from": "moon",
+      "to": "venus",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`venus_longitude` - `moon_longitude`) mod 360. The file's `moon_venus_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "moon_venus_sep_sin",
+        "moon_venus_sep_cos"
+      ]
+    },
+    {
+      "source": "moon_saturn_dist",
+      "family": "separation",
+      "stem": "moon_saturn_sep",
+      "value": "signed_separation",
+      "from": "moon",
+      "to": "saturn",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`saturn_longitude` - `moon_longitude`) mod 360. The file's `moon_saturn_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "moon_saturn_sep_sin",
+        "moon_saturn_sep_cos"
+      ]
+    },
+    {
+      "source": "moon_rahu_dist",
+      "family": "separation",
+      "stem": "moon_rahu_sep",
+      "value": "signed_separation",
+      "from": "moon",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `moon_longitude`) mod 360. The file's `moon_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "moon_rahu_sep_sin",
+        "moon_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "mars_mercury_dist",
+      "family": "separation",
+      "stem": "mars_mercury_sep",
+      "value": "signed_separation",
+      "from": "mars",
+      "to": "mercury",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`mercury_longitude` - `mars_longitude`) mod 360. The file's `mars_mercury_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mars_mercury_sep_sin",
+        "mars_mercury_sep_cos"
+      ]
+    },
+    {
+      "source": "mars_jupiter_dist",
+      "family": "separation",
+      "stem": "mars_jupiter_sep",
+      "value": "signed_separation",
+      "from": "mars",
+      "to": "jupiter",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `mars_longitude`) mod 360. The file's `mars_jupiter_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mars_jupiter_sep_sin",
+        "mars_jupiter_sep_cos"
+      ]
+    },
+    {
+      "source": "mars_venus_dist",
+      "family": "separation",
+      "stem": "mars_venus_sep",
+      "value": "signed_separation",
+      "from": "mars",
+      "to": "venus",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`venus_longitude` - `mars_longitude`) mod 360. The file's `mars_venus_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mars_venus_sep_sin",
+        "mars_venus_sep_cos"
+      ]
+    },
+    {
+      "source": "mars_saturn_dist",
+      "family": "separation",
+      "stem": "mars_saturn_sep",
+      "value": "signed_separation",
+      "from": "mars",
+      "to": "saturn",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`saturn_longitude` - `mars_longitude`) mod 360. The file's `mars_saturn_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mars_saturn_sep_sin",
+        "mars_saturn_sep_cos"
+      ]
+    },
+    {
+      "source": "mars_rahu_dist",
+      "family": "separation",
+      "stem": "mars_rahu_sep",
+      "value": "signed_separation",
+      "from": "mars",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `mars_longitude`) mod 360. The file's `mars_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mars_rahu_sep_sin",
+        "mars_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "mercury_jupiter_dist",
+      "family": "separation",
+      "stem": "mercury_jupiter_sep",
+      "value": "signed_separation",
+      "from": "mercury",
+      "to": "jupiter",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `mercury_longitude`) mod 360. The file's `mercury_jupiter_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mercury_jupiter_sep_sin",
+        "mercury_jupiter_sep_cos"
+      ]
+    },
+    {
+      "source": "mercury_venus_dist",
+      "family": "separation",
+      "stem": "mercury_venus_sep",
+      "value": "signed_separation",
+      "from": "mercury",
+      "to": "venus",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`venus_longitude` - `mercury_longitude`) mod 360. The file's `mercury_venus_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mercury_venus_sep_sin",
+        "mercury_venus_sep_cos"
+      ]
+    },
+    {
+      "source": "mercury_saturn_dist",
+      "family": "separation",
+      "stem": "mercury_saturn_sep",
+      "value": "signed_separation",
+      "from": "mercury",
+      "to": "saturn",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`saturn_longitude` - `mercury_longitude`) mod 360. The file's `mercury_saturn_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mercury_saturn_sep_sin",
+        "mercury_saturn_sep_cos"
+      ]
+    },
+    {
+      "source": "mercury_rahu_dist",
+      "family": "separation",
+      "stem": "mercury_rahu_sep",
+      "value": "signed_separation",
+      "from": "mercury",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `mercury_longitude`) mod 360. The file's `mercury_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "mercury_rahu_sep_sin",
+        "mercury_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "jupiter_venus_dist",
+      "family": "separation",
+      "stem": "jupiter_venus_sep",
+      "value": "signed_separation",
+      "from": "jupiter",
+      "to": "venus",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`venus_longitude` - `jupiter_longitude`) mod 360. The file's `jupiter_venus_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "jupiter_venus_sep_sin",
+        "jupiter_venus_sep_cos"
+      ]
+    },
+    {
+      "source": "jupiter_saturn_dist",
+      "family": "separation",
+      "stem": "jupiter_saturn_sep",
+      "value": "signed_separation",
+      "from": "jupiter",
+      "to": "saturn",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`saturn_longitude` - `jupiter_longitude`) mod 360. The file's `jupiter_saturn_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "jupiter_saturn_sep_sin",
+        "jupiter_saturn_sep_cos"
+      ]
+    },
+    {
+      "source": "jupiter_rahu_dist",
+      "family": "separation",
+      "stem": "jupiter_rahu_sep",
+      "value": "signed_separation",
+      "from": "jupiter",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `jupiter_longitude`) mod 360. The file's `jupiter_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "jupiter_rahu_sep_sin",
+        "jupiter_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "venus_saturn_dist",
+      "family": "separation",
+      "stem": "venus_saturn_sep",
+      "value": "signed_separation",
+      "from": "venus",
+      "to": "saturn",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`saturn_longitude` - `venus_longitude`) mod 360. The file's `venus_saturn_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "venus_saturn_sep_sin",
+        "venus_saturn_sep_cos"
+      ]
+    },
+    {
+      "source": "venus_rahu_dist",
+      "family": "separation",
+      "stem": "venus_rahu_sep",
+      "value": "signed_separation",
+      "from": "venus",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `venus_longitude`) mod 360. The file's `venus_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "venus_rahu_sep_sin",
+        "venus_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "saturn_rahu_dist",
+      "family": "separation",
+      "stem": "saturn_rahu_sep",
+      "value": "signed_separation",
+      "from": "saturn",
+      "to": "rahu",
+      "period": 360.0,
+      "origin": 0.0,
+      "note": "RECOMPUTED as (`rahu_longitude` - `saturn_longitude`) mod 360. The file's `saturn_rahu_dist` is an unwrapped absolute difference and is discarded.",
+      "replaces_source": true,
+      "emits": [
+        "saturn_rahu_sep_sin",
+        "saturn_rahu_sep_cos"
+      ]
+    },
+    {
+      "source": "weekday",
+      "family": "weekday",
+      "stem": "weekday",
+      "value": "weekday_index",
+      "period": 7.0,
+      "origin": 0.0,
+      "replaces_source": false,
+      "note": "Monday-first index over the declared levels. The categorical column survives alongside.",
+      "emits": [
+        "weekday_sin",
+        "weekday_cos"
+      ]
+    }
+  ],
+  "counts": {
+    "angular_in_column_spec": 53,
+    "dropped_redundant": 8,
+    "angular_transformed": 45,
+    "extra_cyclic_views": 1,
+    "emitted_columns": 92,
+    "features_before": 215,
+    "features_after": 207,
+    "model_input_width": 254
+  },
+  "evidence": {
+    "dist_is_unwrapped_abs_diff": {
+      "columns": 34,
+      "max_error_vs_abs_diff": 1.0516032489249483e-12,
+      "max_error_vs_signed_separation": 179.9974757454333,
+      "max_error_vs_folded_separation": 357.82070083936804,
+      "cells_over_180_but_within_30": 2578
+    },
+    "tithy": {
+      "formula": "floor(((moon_longitude - sun_longitude) mod 360) / 12) + 1",
+      "min": 1,
+      "max": 30,
+      "exact_match": true
+    },
+    "ketu_antipodal_to_rahu": {
+      "offsets_observed": [
+        180.0
+      ]
+    },
+    "ketu_pada_survives": {
+      "determined_by_rahu_pada": false,
+      "corr_sin": -0.9253175929143806,
+      "corr_cos": -0.9490383728085466
+    },
+    "antipodal_categoricals": [
+      "ketu_sign",
+      "ketu_navamsa_sign"
+    ],
+    "pada_wraps": {
+      "planet": "sun",
+      "four_to_one_transitions": 27
+    },
+    "nakshatra_scheme": {
+      "levels": 28,
+      "includes_abhijit": true,
+      "narrowest_degrees": 4.17,
+      "widest_degrees": 13.325,
+      "uniform": false
+    },
+    "weekday": {
+      "levels": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ],
+      "sessions_per_level": {
+        "Tuesday": 1317,
+        "Thursday": 1312,
+        "Monday": 1309,
+        "Wednesday": 1306,
+        "Friday": 1271,
+        "Saturday": 1,
+        "Sunday": 1
+      }
+    }
+  }
+}
