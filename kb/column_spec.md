@@ -22,8 +22,8 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 |------|-------|
 | `boolean` | 14 |
 | `categorical` | 67 |
-| `angular` | 53 |
-| `linear_numeric` | 73 |
+| `angular` | 19 |
+| `linear_numeric` | 107 |
 | **total** | **207** |
 
 ### `boolean`
@@ -119,7 +119,7 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 
 ### `angular`
 
-53 columns. This spec fixes **membership only**. Each column's period and its sin/cos transform are decided in [#7](https://github.com/jenujari/prdict-pov-v1/issues/7).
+19 columns. This spec fixes **membership only**. Each column's period and its sin/cos transform are decided in [#7](https://github.com/jenujari/prdict-pov-v1/issues/7).
 
 - `tithy`
 - `sun_longitude`
@@ -140,44 +140,10 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 - `ketu_nakshatra_pada`
 - `mars_longitude`
 - `mars_nakshatra_pada`
-- `sun_mars_dist`
-- `sun_mercury_dist`
-- `sun_jupiter_dist`
-- `sun_venus_dist`
-- `sun_saturn_dist`
-- `sun_rahu_dist`
-- `sun_ketu_dist`
-- `moon_mars_dist`
-- `moon_mercury_dist`
-- `moon_jupiter_dist`
-- `moon_venus_dist`
-- `moon_saturn_dist`
-- `moon_rahu_dist`
-- `moon_ketu_dist`
-- `mars_mercury_dist`
-- `mars_jupiter_dist`
-- `mars_venus_dist`
-- `mars_saturn_dist`
-- `mars_rahu_dist`
-- `mars_ketu_dist`
-- `mercury_jupiter_dist`
-- `mercury_venus_dist`
-- `mercury_saturn_dist`
-- `mercury_rahu_dist`
-- `mercury_ketu_dist`
-- `jupiter_venus_dist`
-- `jupiter_saturn_dist`
-- `jupiter_rahu_dist`
-- `jupiter_ketu_dist`
-- `venus_saturn_dist`
-- `venus_rahu_dist`
-- `venus_ketu_dist`
-- `saturn_rahu_dist`
-- `saturn_ketu_dist`
 
 ### `linear_numeric`
 
-73 columns — latitudes (a narrow ±8.6 band, not cyclic), distances in AU, the three speed families, and the bala scores.
+107 columns — latitudes (a narrow ±8.6 band, not cyclic), distances in AU, the three speed families, and the bala scores.
 
 - `sun_latitude`
 - `sun_distance`
@@ -252,6 +218,40 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 - `mars_vakra_bala`
 - `mars_kshetra_bala`
 - `mars_navamsha_bala`
+- `sun_mars_dist`
+- `sun_mercury_dist`
+- `sun_jupiter_dist`
+- `sun_venus_dist`
+- `sun_saturn_dist`
+- `sun_rahu_dist`
+- `sun_ketu_dist`
+- `moon_mars_dist`
+- `moon_mercury_dist`
+- `moon_jupiter_dist`
+- `moon_venus_dist`
+- `moon_saturn_dist`
+- `moon_rahu_dist`
+- `moon_ketu_dist`
+- `mars_mercury_dist`
+- `mars_jupiter_dist`
+- `mars_venus_dist`
+- `mars_saturn_dist`
+- `mars_rahu_dist`
+- `mars_ketu_dist`
+- `mercury_jupiter_dist`
+- `mercury_venus_dist`
+- `mercury_saturn_dist`
+- `mercury_rahu_dist`
+- `mercury_ketu_dist`
+- `jupiter_venus_dist`
+- `jupiter_saturn_dist`
+- `jupiter_rahu_dist`
+- `jupiter_ketu_dist`
+- `venus_saturn_dist`
+- `venus_rahu_dist`
+- `venus_ketu_dist`
+- `saturn_rahu_dist`
+- `saturn_ketu_dist`
 
 ## Availability: known-future vs past-only
 

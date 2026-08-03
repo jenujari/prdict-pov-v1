@@ -141,8 +141,6 @@ def classify_type(col: str, frame: pd.DataFrame, category_keys: set[str]) -> str
         return "categorical"
     if col.endswith("_longitude"):
         return "angular"
-    if CROSS_DIST_RE.match(col):
-        return "angular"
     if col.endswith("_nakshatra_pada") or col == "tithy":
         return "angular"
     # The cross-planet `<a>_<b>_dist` columns are deliberately **not** angular.

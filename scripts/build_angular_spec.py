@@ -10,13 +10,18 @@ matter more than the rest.
 
   1. The 34 cross-planet `<a>_<b>_dist` columns are **not** angles. They hold
      `abs(lon_a - lon_b)` with no modular reduction at all, so two planets at
-     359 and 1 degrees are recorded 358 degrees apart. They are discarded and
-     the separation is recomputed from the longitudes.
+     359 and 1 degrees are recorded 358 degrees apart. Both encodings are kept:
+     the source column passes through untransformed (typed linear by #3), and
+     the signed separation recomputed from the longitudes is added beside it.
+     #12 decides which earns its place. Only sin/cos is withheld from `_dist`,
+     because sin is odd and sin(|d|) folds two configurations onto one value.
   2. `tithy` is exactly `floor(elongation / 12) + 1` on the Moon-Sun elongation,
      1-indexed, so its period is 30 with origin 1.
   3. `ketu_longitude` is `rahu_longitude + 180` on every row, by construction —
-     Ketu is the south lunar node. Under any circular encoding that makes the
-     Ketu columns exact negations of the Rahu ones, so they are dropped.
+     Ketu is the south lunar node, so its sin/cos pair is the exact negation of
+     Rahu's and it is dropped. This does *not* extend to the seven
+     `<a>_ketu_dist` columns: as unwrapped absolute differences they are not a
+     function of the Rahu ones (correlation only -0.48 to -0.69), so they stay.
 
 Writes kb/angular_spec.json (machine-readable) and kb/angular_spec.md (human).
 
@@ -138,6 +143,33 @@ def verify(frame: pd.DataFrame, angular: list[str]) -> dict:
         raise AssertionError(f"ketu - rahu is not a constant 180: {offset[:5]}")
     evidence["ketu_antipodal_to_rahu"] = {"offsets_observed": offset.tolist()}
 
+    # The antipodal relation is exact for the *longitude*, and so for any circular
+    # encoding of it. It does NOT carry over to the raw `_dist` columns, which are
+    # unwrapped absolute differences: `<a>_ketu_dist` is not a function of
+    # `<a>_rahu_dist`. Measured, because an earlier revision assumed otherwise and
+    # dropped all seven.
+    worst_corr, worst_resid = 0.0, np.inf
+    for col in angular:
+        match = CROSS_DIST_RE.match(col)
+        if not match or "ketu" not in match.groups():
+            continue
+        twin = "_".join("rahu" if p == "ketu" else p for p in match.groups()) + "_dist"
+        if twin not in frame.columns:
+            continue
+        x, y = frame[twin].to_numpy(), frame[col].to_numpy()
+        worst_corr = max(worst_corr, abs(float(np.corrcoef(x, y)[0, 1])))
+        fit = np.polyfit(x, y, 1)
+        worst_resid = min(worst_resid, float(np.abs(y - np.polyval(fit, x)).max()))
+    if worst_corr >= 0.95:
+        raise AssertionError(
+            f"a ketu _dist column now correlates {worst_corr} with its rahu twin; "
+            "the spec keeps all seven on the grounds that they do not"
+        )
+    evidence["ketu_dist_not_redundant"] = {
+        "max_abs_correlation_with_rahu_twin": worst_corr,
+        "min_linear_fit_residual_degrees": worst_resid,
+    }
+
     # 3b. The antipodal relation does NOT carry through to pada, because 180
     #     degrees is 13.5 nakshatras only under a uniform 27-fold scheme and this
     #     source is 28-fold with unequal spans. So `ketu_nakshatra_pada` survives
@@ -213,15 +245,24 @@ def build() -> dict:
     column_spec = json.loads(COLUMN_SPEC.read_text())
     angular = column_spec["types"]["angular"]
 
-    evidence = verify(frame, angular)
+    # The `_dist` columns are typed linear by #3 (see the note there) and survive
+    # untransformed. They are still the inventory of which planet pairs exist, so
+    # the separation transforms are enumerated from them.
+    dist_cols = [c for c in column_spec["types"]["linear_numeric"] if CROSS_DIST_RE.match(c)]
+
+    evidence = verify(frame, angular + dist_cols)
 
     # --- structural drops ---------------------------------------------------
+    # Only `ketu_longitude`. Its sin/cos pair is the exact negation of Rahu's, so
+    # it is a true duplicate *under this encoding*.
+    #
+    # The seven `<a>_ketu_dist` columns are NOT dropped, though #7 originally did
+    # drop them. That drop was justified on the *recomputed* separation, where the
+    # Ketu pair is an exact negation of the Rahu one. It does not carry over to
+    # the raw column: an unwrapped absolute difference to Ketu is not a function
+    # of the one to Rahu (measured correlation only -0.48 to -0.69), so the source
+    # values are independent numbers and are kept.
     dropped: dict[str, str] = {"ketu_longitude": ANTIPODAL_REASON.format(twin="rahu_longitude")}
-    for col in angular:
-        match = CROSS_DIST_RE.match(col)
-        if match and "ketu" in match.groups():
-            twin = "_".join("rahu" if p == "ketu" else p for p in match.groups())
-            dropped[col] = ANTIPODAL_REASON.format(twin=f"{twin}_dist")
 
     kept = [c for c in angular if c not in dropped]
 
@@ -268,23 +309,34 @@ def build() -> dict:
                 }
             )
         else:
-            a, b = CROSS_DIST_RE.match(col).groups()
-            transforms.append(
-                {
-                    "source": col,
-                    "family": "separation",
-                    "stem": f"{a}_{b}_sep",
-                    "value": "signed_separation",
-                    "from": a,
-                    "to": b,
-                    "period": 360.0,
-                    "origin": 0.0,
-                    "note": (
-                        f"RECOMPUTED as (`{b}_longitude` - `{a}_longitude`) mod 360. "
-                        f"The file's `{col}` is an unwrapped absolute difference and is discarded."
-                    ),
-                }
-            )
+            raise AssertionError(f"no period rule for angular column {col!r}")
+
+    # Separations, recomputed from the longitudes. These are *additions*: the
+    # source `_dist` column is not consumed, so both encodings reach the model
+    # and feature selection decides between them.
+    for col in dist_cols:
+        a, b = CROSS_DIST_RE.match(col).groups()
+        if "ketu" in (a, b):
+            # As a signed separation the Ketu pair is the exact negation of the
+            # Rahu one, so only the raw `_dist` column is carried for these.
+            continue
+        transforms.append(
+            {
+                "source": col,
+                "family": "separation",
+                "stem": f"{a}_{b}_sep",
+                "value": "signed_separation",
+                "from": a,
+                "to": b,
+                "period": 360.0,
+                "origin": 0.0,
+                "replaces_source": False,
+                "note": (
+                    f"RECOMPUTED as (`{b}_longitude` - `{a}_longitude`) mod 360, and added "
+                    f"alongside `{col}`, which survives untransformed."
+                ),
+            }
+        )
 
     # weekday is a categorical (#3) that additionally earns a cyclic view; it is
     # the one transform whose source column is not in the angular list, and the
@@ -331,7 +383,9 @@ def build() -> dict:
             "angular_in_column_spec": len(angular),
             "dropped_redundant": len(dropped),
             "angular_transformed": len(kept),
-            "extra_cyclic_views": len(transforms) - len(kept),
+            "separations_added": sum(1 for t in transforms if t["family"] == "separation"),
+            "dist_columns_kept": len(dist_cols),
+            "extra_cyclic_views": sum(1 for t in transforms if t["family"] == "weekday"),
             "emitted_columns": len(emitted),
             "features_before": n_features,
             "features_after": n_features - len(dropped),
@@ -377,24 +431,32 @@ def render_markdown(spec: dict) -> str:
         f"`{dist['max_error_vs_folded_separation']:.1f}` for a folded one.",
         "",
         "So the column is neither of the two things the ticket asked us to choose "
-        "between. It is broken as an angle: two planets at 359 and 1 degrees are "
+        "between. As an *angle* it does not behave: two planets at 359 and 1 degrees are "
         "recorded 358 degrees apart. Across the file, "
         f"**{dist['cells_over_180_but_within_30']:,} cells** record a separation above "
-        "180 degrees where the true angular separation is under 30.",
+        "180 degrees where the folded angular separation is under 30.",
         "",
-        "Applying sin/cos to the column as given would half-work and half-poison: "
-        "`cos` is even, so `cos(abs(d)) == cos(d)` and comes out correct by luck, but "
-        "`sin(abs(d)) == sign(d) * sin(d)`, and that sign tracks which planet holds the "
-        "larger raw 0-360 number — an artifact of where the coordinate origin sits, not "
-        "a fact about the sky.",
+        "**Both encodings are kept.** An earlier revision of this spec discarded the "
+        "`_dist` columns and replaced them with the recomputed separation. That was the "
+        "wrong call to make unilaterally: the source is a **financial**-astrology scheme "
+        "whose readings are deliberately tuned, and the unwrapped difference is what it "
+        "computes. So the source column survives untransformed, the recomputed separation "
+        "is added beside it, and **[#12](https://github.com/jenujari/prdict-pov-v1/issues/12) "
+        "decides which earns its place** on the evidence.",
         "",
-        "**The separation is therefore recomputed from the longitudes** as a signed "
-        "quantity, `delta_ab = (lon_b - lon_a) mod 360`, and the file's `_dist` values "
-        "are discarded. Signed rather than folded because Vedic drishti is directional "
-        "— Mars aspects the 4th, 7th and 8th houses forward, Jupiter the 5th, 7th and "
-        "9th, Saturn the 3rd, 7th and 10th — so applying and separating are different "
-        "states. `cos(delta)` carries aspect strength (conjunction `+1`, square `0`, "
-        "opposition `-1`); `sin(delta)` carries the side.",
+        "The one thing not done to `_dist` is sin/cos. That would half-work and "
+        "half-poison: `cos` is even, so `cos(abs(d)) == cos(d)` and comes out right by "
+        "luck, but `sin(abs(d)) == sign(d) * sin(d)`, and that sign tracks which planet "
+        "holds the larger raw 0-360 number — an artifact of where the coordinate origin "
+        "sits. So `_dist` is typed **linear** by #3 and passes straight through, carrying "
+        "the source's own number with no transform applied to it at all.",
+        "",
+        "The added separation is `delta_ab = (lon_b - lon_a) mod 360`, signed rather than "
+        "folded because Vedic drishti is directional — Mars aspects the 4th, 7th and 8th "
+        "houses forward, Jupiter the 5th, 7th and 9th, Saturn the 3rd, 7th and 10th — so "
+        "applying and separating are different states. `cos(delta)` carries aspect "
+        "strength (conjunction `+1`, square `0`, opposition `-1`); `sin(delta)` carries "
+        "the side.",
         "",
         "## Transform",
         "",
@@ -404,7 +466,9 @@ def render_markdown(spec: dict) -> str:
         "        <stem>_cos = cos(theta)",
         "```",
         "",
-        "The **raw angle does not survive** — sin/cos replaces it. A TFT reads a raw "
+        "For the columns that **are** angles — longitudes, padas, `tithy` — the raw "
+        "angle does not survive; sin/cos replaces it. (`_dist` is not in that set; it is "
+        "a linear passthrough, see above.) A TFT reads a raw "
         "angle through linear layers, which put 359 and 1 at opposite ends of the "
         "range; and the threshold handle a raw angle would give XGBoost is already "
         "supplied by the `*_sign`, `*_nakshatra_name` and `*_navamsa_sign` "
@@ -443,17 +507,28 @@ def render_markdown(spec: dict) -> str:
         "",
         "## Dropped as structurally redundant",
         "",
-        f"{c['dropped_redundant']} columns. `ketu_longitude` is `rahu_longitude` + 180 on "
+        f"{c['dropped_redundant']} column. `ketu_longitude` is `rahu_longitude` + 180 on "
         f"every row (offsets observed: {e['ketu_antipodal_to_rahu']['offsets_observed']}), "
         "because Ketu *is* the south lunar node. Under the circular encoding that makes "
         "each Ketu sin/cos the exact negation of Rahu's — measured correlation "
         "`-1.000000` on both members — so they are dropped here rather than left for the "
         "fold-level prune to rediscover. The relation is definitional, not sampled, so "
         "dropping globally cannot leak; this is the same licence [#3]"
-        "(https://github.com/jenujari/prdict-pov-v1/issues/3) used for the 20 constants. "
+        "(https://github.com/jenujari/prdict-pov-v1/issues/3) used for its constants. "
         "`rahu_ketu_dist` was already dropped there as constant.",
         "",
         bullets(spec["dropped_redundant"]),
+        "",
+        "**The seven `<a>_ketu_dist` columns are not dropped**, although an earlier "
+        "revision of this spec did drop them on the same antipodal argument. The argument "
+        "does not survive contact with the raw column: it holds for the *recomputed* "
+        "separation, where the Ketu pair is an exact negation of the Rahu one, but an "
+        "unwrapped absolute difference to Ketu is not a function of the one to Rahu. "
+        "Measured: the strongest correlation any of the seven reaches against its Rahu "
+        f"twin is `{e['ketu_dist_not_redundant']['max_abs_correlation_with_rahu_twin']:.3f}`, "
+        "and the closest best-fit line still leaves a residual of "
+        f"`{e['ketu_dist_not_redundant']['min_linear_fit_residual_degrees']:.0f}` degrees. "
+        "They are independent numbers and they stay.",
         "",
         "**`ketu_nakshatra_pada` survives**, and the asymmetry is deliberate. 180 degrees "
         "is 13.5 nakshatras only under a *uniform* 27-fold scheme; this source is 28-fold "
@@ -585,7 +660,9 @@ def main() -> None:
     print("verified: _dist is abs(lon_a - lon_b), tithy formula, ketu antipodal, pada wrap")
     for label, key in [
         ("angular from #3", "angular_in_column_spec"),
-        ("dropped (ketu)", "dropped_redundant"),
+        ("dropped (ketu_longitude)", "dropped_redundant"),
+        ("_dist kept as linear", "dist_columns_kept"),
+        ("separations added", "separations_added"),
         ("transformed", "angular_transformed"),
         ("extra cyclic", "extra_cyclic_views"),
         ("emitted", "emitted_columns"),

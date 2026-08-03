@@ -5,9 +5,12 @@ read side, so no downstream stage decides a period for itself.
 
 Two things here are load-bearing for later stages.
 
-  * `transform()` **recomputes** every cross-planet separation from the
+  * `transform()` **adds** a cross-planet separation recomputed from the
     longitudes. The file's `<a>_<b>_dist` columns are an unwrapped absolute
-    difference, not an angle, and are discarded — see `kb/angular_spec.md`.
+    difference rather than an angle, so they are not placed on a circle — but
+    they are **not** discarded either: they survive untransformed as linear
+    features beside the recomputed pairs, and #12 chooses between the two
+    encodings on the evidence. See `kb/angular_spec.md`.
   * `pair_groups()` gives the `(sin, cos)` grouping that #12 and #13 must
     respect: a pair is kept or dropped as a unit, never split.
 
