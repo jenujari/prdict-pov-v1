@@ -156,16 +156,11 @@ def weekday_rule_error(frame: pd.DataFrame) -> dict:
 
 
 def gap_cost(history: pd.DatetimeIndex) -> dict:
-    """How many trainable origins the gap filter removes.
+    """What filtering on gaps *would* cost — recorded, not applied.
 
-    Only the **target** is checked. Map decision 5 drops every price-derived
-    feature, so the past-60 encoder block is astro plus calendar only — a
-    missing price cannot corrupt it, and the astro columns are complete on every
-    gap date. Only `log(C_t/C_{t-1})` is damaged, where a step spans two
-    sessions' move while being labelled as one.
-
-    The stricter alternative — requiring the encoder to be clean too — is
-    reported alongside, because it is what the crash regimes cost.
+    #25 settles that the missing sessions are treated as ordinary trading
+    holidays, so every origin is trainable. These numbers size the exposure and
+    let an ablation reproduce the alternatives without re-deriving them.
     """
     gaps = pd.DatetimeIndex(GAP_DATES)
     positions = {int(p) for p in history.get_indexer(gaps, method="bfill") if p > 0}
@@ -183,15 +178,19 @@ def gap_cost(history: pd.DatetimeIndex) -> dict:
     return {
         "n_gap_dates": len(gaps),
         "n_discontinuities": len(positions),
-        "origins_before": total,
-        "origins_after": target_only,
-        "origins_dropped": total - target_only,
-        "fraction_dropped": round((total - target_only) / total, 4),
-        "if_encoder_also_clean": {
-            "origins_after": whole_window,
-            "origins_dropped": total - whole_window,
-            "note": "rejected — costs the 2008 and 2002 crash regimes for no "
-            "correctness gain, since the encoder carries no price",
+        "policy": "kept — missing sessions are treated as trading holidays",
+        "trainable_origins": total,
+        "exposure": {
+            "origins_with_gap_in_target": total - target_only,
+            "fraction": round((total - target_only) / total, 4),
+        },
+        "if_filtered_on_target": {
+            "origins": target_only,
+            "dropped": total - target_only,
+        },
+        "if_filtered_on_whole_window": {
+            "origins": whole_window,
+            "dropped": total - whole_window,
         },
     }
 
@@ -250,9 +249,9 @@ def build(frame: pd.DataFrame) -> dict:
         "weekday_rule_error": weekday_rule_error(frame),
         "gaps": {
             "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/25",
-            "policy": "sessions are kept; origins whose *target* crosses a gap are "
-            "dropped. The encoder block is not checked — decision 5 leaves it "
-            "astro-only, so a missing price cannot corrupt it.",
+            "policy": "the missing sessions are treated as ordinary trading "
+            "holidays — nothing is filtered. The defect is recorded so results "
+            "can be interpreted, and `spans_gap` remains available for an ablation.",
             "detection": {
                 "year_threshold": GAP_YEAR_THRESHOLD,
                 "run_length": GAP_RUN_LENGTH,
@@ -482,23 +481,41 @@ def render_markdown(spec: dict) -> str:
         "collapses to trading days, so the two sessions either side become neighbours and "
         "the step between them silently spans more than one session's move.",
         "",
-        "**Policy: sessions are kept; an origin is dropped only when its *target* crosses "
-        "a gap.**",
+        "**Policy: the missing sessions are treated as ordinary trading holidays.** "
+        "Nothing is filtered; all "
+        f"{spec['gaps']['cost']['trainable_origins']} origins are trainable.",
         "",
-        "The encoder block is deliberately **not** checked. Map decision 5 drops every "
-        "price-derived feature, so the past-60 block is astro plus calendar only and "
-        "carries no price at all — and the astro columns are complete and correct on every "
-        "gap date. A missing price cannot corrupt an input that contains no price. What it "
-        "does corrupt is the target, where `log(C_t/C_{t-1})` silently spans two sessions' "
-        "move while being labelled as one.",
+        "Three facts make this the right default rather than a concession:",
         "",
-        "This distinction is worth real data. Requiring the whole window to be clean would "
-        f"leave {spec['gaps']['cost']['if_encoder_also_clean']['origins_after']} origins "
-        f"instead of {spec['gaps']['cost']['origins_after']}, and — the part that matters — "
-        "would put only **9 of 2008's 38 >4% sessions** inside a retained encoder block. "
-        "Under the target-only rule **all 38** are retained. 2008 is the most extreme "
-        "regime in the sample; a model that has never encoded its planetary configurations "
-        "cannot recognise them recurring.",
+        "1. **The step they produce already exists, in bulk.** 2008's missing sessions are "
+        "mostly Fridays, so the surviving step is Thursday → Monday — the exact calendar "
+        "spacing a genuine Friday holiday produces, of which the index holds hundreds. The "
+        "target was never a uniform time interval: a normal weekend already makes one step "
+        "span three calendar days against another's one.",
+        "2. **The distortion is below the noise floor.** A straddling-return test — is the "
+        "step across a gap inflated? — scores the confirmed 2008 gaps at mean z 0.67 "
+        "against 0.24 for randomly chosen real holidays, with only 9 of 29 above z=1. The "
+        "effect is not separable from ordinary holiday steps even knowing where to look.",
+        "3. **Filtering costs the regime the hypothesis most needs.** 2008 is the sample's "
+        "most extreme year (volatility rank 1 of 27, 45.8% annualised, 38 sessions beyond "
+        "±4%). Excluding windows there trains a model that has never encoded those "
+        "planetary configurations, and so cannot recognise them recurring.",
+        "",
+        "What is given up: "
+        f"**{spec['gaps']['cost']['exposure']['origins_with_gap_in_target']} origins "
+        f"({100 * spec['gaps']['cost']['exposure']['fraction']:.1f}%)** have one step of "
+        "their 10-step target carrying roughly one extra session's move. Since the "
+        "evaluation is a trading simulation driven by return magnitude, that exposure is "
+        "recorded here rather than waved off — but it is one step in ten, in 2.3% of "
+        "origins.",
+        "",
+        "The alternatives are kept in `kb/trading_calendar.json` so an ablation can "
+        "reproduce them without re-deriving anything: filtering on the target span leaves "
+        f"{spec['gaps']['cost']['if_filtered_on_target']['origins']} origins, and "
+        "additionally requiring a clean encoder leaves "
+        f"{spec['gaps']['cost']['if_filtered_on_whole_window']['origins']} — the latter "
+        "retaining only 9 of 2008's 38 >4% sessions in any encoder block, against all 38 "
+        "under the chosen policy. `cal.spans_gap(first, last)` applies either.",
         "",
         f"{spec['known_gaps']['note']}",
         "",
@@ -523,15 +540,13 @@ def render_markdown(spec: dict) -> str:
         "",
         f"That gives **{spec['gaps']['cost']['n_gap_dates']} gap dates** and "
         f"**{spec['gaps']['cost']['n_discontinuities']} discontinuities** in the session "
-        f"index, costing **{spec['gaps']['cost']['origins_dropped']}** of "
-        f"{spec['gaps']['cost']['origins_before']} trainable origins "
-        f"({100 * spec['gaps']['cost']['fraction_dropped']:.1f}%).",
+        "index. They are identified so results can be interpreted and so an ablation can "
+        "target them — not because anything is dropped.",
         "",
-        "Note this counts only origins whose *target* is damaged. The 29 gap dates "
-        "themselves are absent from the trading-day index entirely — they have no close, "
-        "so they cannot be rows — which means their own astro states are never encoded "
-        "under any policy. Their neighbours are, which is what the crash-regime argument "
-        "actually needs.",
+        "Note the gap dates are absent from the trading-day index entirely — no close means "
+        "no row — so **their own** astro states are never encoded under any policy, "
+        "including this one. Only their neighbours are. Encoding them would require a row "
+        "with no target, which contradicts map decision 1.",
         "",
         "### Known residue, deliberately unflagged",
         "",
@@ -555,13 +570,13 @@ def render_markdown(spec: dict) -> str:
         "",
         "### Consequence for the folds",
         "",
-        "A gap is a second kind of fold boundary. The walk-forward arithmetic of "
-        "[#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each "
-        "discontinuity like a purge edge for **target** spans, since a fold that looks "
-        "contiguous by date is not contiguous by session. Encoder blocks may cross a gap "
-        "freely, so a fold boundary and a gap are not the same constraint — "
-        "`cal.spans_gap(first, last)` takes an explicit range so #10 can apply it to "
-        "whichever span it means.",
+        "Since nothing is filtered, [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) "
+        "inherits **no** extra fold constraint — the session index is contiguous by "
+        "construction and a gap is just another holiday. The one thing #10 should know is "
+        "that 2008 carries the sample's densest run of them, so a fold boundary landing "
+        "inside `2008-03-28`–`2008-11-28` sits in the least reliable stretch of the "
+        "history. `cal.discontinuities` and `cal.spans_gap(first, last)` are available if "
+        "the fold design wants to avoid it.",
         "",
     ]
     return "\n".join(lines)
@@ -593,8 +608,10 @@ def main() -> None:
     cost = spec["gaps"]["cost"]
     print(f"gaps             : {cost['n_gap_dates']} dates, "
           f"{cost['n_discontinuities']} discontinuities")
-    print(f"trainable origins: {cost['origins_after']} of {cost['origins_before']} "
-          f"(-{cost['origins_dropped']}, -{100 * cost['fraction_dropped']:.1f}%)")
+    print(f"trainable origins: {cost['trainable_origins']} (gaps kept as holidays)")
+    print(f"  of which a gap falls inside the target: "
+          f"{cost['exposure']['origins_with_gap_in_target']} "
+          f"({100 * cost['exposure']['fraction']:.1f}%)")
 
     if args.audit:
         audit(spec)

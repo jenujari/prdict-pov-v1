@@ -58,11 +58,14 @@ class TradingCalendar:
         return self.sessions.get_indexer([pd.Timestamp(day)])[0] != -1
 
     def spans_gap(self, first: int, last: int) -> bool:
-        """Whether the session range `[first, last]` steps across a gap.
+        """Whether the session range `[first, last]` steps across a known gap.
 
         A discontinuity is recorded at the position *after* a missing session,
-        so the range is damaged when one falls in `(first, last]` — the step
-        into it is the one that spans more than a single session's move.
+        so the range crosses one when it falls in `(first, last]`.
+
+        Nothing in the default path calls this — #25 treats the missing
+        sessions as ordinary trading holidays. It exists so an ablation can ask
+        whether that choice mattered, and so #10 can reason about fold edges.
         """
         return any(first < p <= last for p in self.discontinuities)
 
@@ -74,21 +77,13 @@ class TradingCalendar:
         the full known-covariate block; pass `horizon` instead to ask only for
         the sessions the target actually spans.
 
-        Origins whose **target** crosses a gap are excluded. The encoder block
-        is deliberately not checked: map decision 5 drops every price-derived
-        feature, so the past-60 block is astro plus calendar only and carries no
-        price at all. A missing price cannot corrupt it — the astro columns are
-        complete and correct on every gap date. Only the target is damaged,
-        where `log(C_t/C_{t-1})` silently spans two sessions' move.
-
-        Letting the encoder span a gap keeps the 2008 and 2002 crash regimes in
-        training: all 38 of 2008's >4% sessions appear in a retained encoder
-        block, against 9 when the whole window had to be clean.
+        Gaps are **not** filtered — #25 settles that the missing sessions are
+        treated as ordinary trading holidays. Use `spans_gap` directly to
+        exclude them for an ablation; see `kb/trading_calendar.md` for why the
+        default is to keep them.
         """
         ahead = self.future if forward_steps is None else forward_steps
-        candidates = range(self.past - 1, len(self.sessions) - ahead)
-        keep = [i for i in candidates if not self.spans_gap(i, i + self.horizon)]
-        return self.sessions[keep]
+        return self.sessions[self.past - 1 : len(self.sessions) - ahead]
 
     def trainable_origins(self) -> pd.DatetimeIndex:
         """Origins whose whole target horizon has an observed close.
@@ -117,11 +112,6 @@ class TradingCalendar:
             raise ValueError(
                 f"{pd.Timestamp(origin).date()} has no full future-{self.future} block "
                 f"— the last such origin is {self.origins()[-1].date()}"
-            )
-        if self.spans_gap(i, i + self.horizon):
-            raise ValueError(
-                f"the target at {pd.Timestamp(origin).date()} crosses a gap in the "
-                "source data — see the gaps section of kb/trading_calendar.md"
             )
         return {
             "past": self.sessions[i - self.past + 1 : i + 1],
@@ -187,12 +177,11 @@ def main() -> None:
     print(f"trainable origins: {len(train)}  {train[0].date()} → {train[-1].date()}")
     print(f"forward origins  : {len(fwd)}  {fwd[0].date()} → {fwd[-1].date()}")
 
-    # No surviving target may step across a gap; encoders may, and should.
-    leaks = [d for d in train if cal.spans_gap(cal.position(d), cal.position(d) + cal.horizon)]
-    spanning = [d for d in train
-                if cal.spans_gap(cal.position(d) - cal.past + 1, cal.position(d))]
-    print(f"trainable origins whose target crosses a gap : {len(leaks)}")
-    print(f"trainable origins whose encoder spans a gap  : {len(spanning)} (allowed)")
+    # Gaps are kept as ordinary holidays; report the exposure rather than hide it.
+    crossing = [d for d in train
+                if cal.spans_gap(cal.position(d), cal.position(d) + cal.horizon)]
+    print(f"trainable origins whose target crosses a gap : {len(crossing)} "
+          f"({100 * len(crossing) / len(train):.1f}%, kept by design)")
 
     last = cal.window(fwd[-1])
     print(f"\nlast forward window, origin {fwd[-1].date()}")

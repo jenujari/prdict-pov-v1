@@ -238,7 +238,7 @@
   },
   "gaps": {
     "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/25",
-    "policy": "sessions are kept; origins whose *target* crosses a gap are dropped. The encoder block is not checked \u2014 decision 5 leaves it astro-only, so a missing price cannot corrupt it.",
+    "policy": "the missing sessions are treated as ordinary trading holidays \u2014 nothing is filtered. The defect is recorded so results can be interpreted, and `spans_gap` remains available for an ablation.",
     "detection": {
       "year_threshold": 3,
       "run_length": 4,
@@ -296,14 +296,19 @@
     "cost": {
       "n_gap_dates": 33,
       "n_discontinuities": 28,
-      "origins_before": 6448,
-      "origins_after": 6301,
-      "origins_dropped": 147,
-      "fraction_dropped": 0.0228,
-      "if_encoder_also_clean": {
-        "origins_after": 6167,
-        "origins_dropped": 281,
-        "note": "rejected \u2014 costs the 2008 and 2002 crash regimes for no correctness gain, since the encoder carries no price"
+      "policy": "kept \u2014 missing sessions are treated as trading holidays",
+      "trainable_origins": 6448,
+      "exposure": {
+        "origins_with_gap_in_target": 147,
+        "fraction": 0.0228
+      },
+      "if_filtered_on_target": {
+        "origins": 6301,
+        "dropped": 147
+      },
+      "if_filtered_on_whole_window": {
+        "origins": 6167,
+        "dropped": 281
       }
     }
   },

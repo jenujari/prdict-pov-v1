@@ -71,11 +71,17 @@ Because the effect is a shift rather than a point error, there is no partial cre
 
 Resolves [#25](https://github.com/jenujari/prdict-pov-v1/issues/25). The observed index is authoritative for *which dates the market was open* — except where the source is simply missing rows. A missing session does not leave a hole: under map decision 1 the index collapses to trading days, so the two sessions either side become neighbours and the step between them silently spans more than one session's move.
 
-**Policy: sessions are kept; an origin is dropped only when its *target* crosses a gap.**
+**Policy: the missing sessions are treated as ordinary trading holidays.** Nothing is filtered; all 6448 origins are trainable.
 
-The encoder block is deliberately **not** checked. Map decision 5 drops every price-derived feature, so the past-60 block is astro plus calendar only and carries no price at all — and the astro columns are complete and correct on every gap date. A missing price cannot corrupt an input that contains no price. What it does corrupt is the target, where `log(C_t/C_{t-1})` silently spans two sessions' move while being labelled as one.
+Three facts make this the right default rather than a concession:
 
-This distinction is worth real data. Requiring the whole window to be clean would leave 6167 origins instead of 6301, and — the part that matters — would put only **9 of 2008's 38 >4% sessions** inside a retained encoder block. Under the target-only rule **all 38** are retained. 2008 is the most extreme regime in the sample; a model that has never encoded its planetary configurations cannot recognise them recurring.
+1. **The step they produce already exists, in bulk.** 2008's missing sessions are mostly Fridays, so the surviving step is Thursday → Monday — the exact calendar spacing a genuine Friday holiday produces, of which the index holds hundreds. The target was never a uniform time interval: a normal weekend already makes one step span three calendar days against another's one.
+2. **The distortion is below the noise floor.** A straddling-return test — is the step across a gap inflated? — scores the confirmed 2008 gaps at mean z 0.67 against 0.24 for randomly chosen real holidays, with only 9 of 29 above z=1. The effect is not separable from ordinary holiday steps even knowing where to look.
+3. **Filtering costs the regime the hypothesis most needs.** 2008 is the sample's most extreme year (volatility rank 1 of 27, 45.8% annualised, 38 sessions beyond ±4%). Excluding windows there trains a model that has never encoded those planetary configurations, and so cannot recognise them recurring.
+
+What is given up: **147 origins (2.3%)** have one step of their 10-step target carrying roughly one extra session's move. Since the evaluation is a trading simulation driven by return magnitude, that exposure is recorded here rather than waved off — but it is one step in ten, in 2.3% of origins.
+
+The alternatives are kept in `kb/trading_calendar.json` so an ablation can reproduce them without re-deriving anything: filtering on the target span leaves 6301 origins, and additionally requiring a clean encoder leaves 6167 — the latter retaining only 9 of 2008's 38 >4% sessions in any encoder block, against all 38 under the chosen policy. `cal.spans_gap(first, last)` applies either.
 
 2008 is missing 21 sessions against XBOM's 246 — 29 dates XBOM calls sessions, 22 of them Fridays, spanning 2008-03-28 to 2008-11-28. Not a crash closure (the deficit starts in March and peaks in July; the crash days are all present) and not a date shift (shifting by +-1 does not improve agreement). Unrepairable: the rows carry all 235 astro columns but no price, and the map rules out new data sources.
 
@@ -88,9 +94,9 @@ By **systematic source failure**, not date by date:
 1. A year with at least **3** XBOM mismatches. 2008 has 29; every other year has 0–2, so any threshold in 3–28 isolates it.
 2. A run of at least **4** consecutive closed weekdays, which no Indian holiday pattern produces. This is the only detector reaching before XBOM's 2006-08-03 start, and it fires exactly once, on `2002-08-27`–`2002-08-30`.
 
-That gives **33 gap dates** and **28 discontinuities** in the session index, costing **147** of 6448 trainable origins (2.3%).
+That gives **33 gap dates** and **28 discontinuities** in the session index. They are identified so results can be interpreted and so an ablation can target them — not because anything is dropped.
 
-Note this counts only origins whose *target* is damaged. The 29 gap dates themselves are absent from the trading-day index entirely — they have no close, so they cannot be rows — which means their own astro states are never encoded under any policy. Their neighbours are, which is what the crash-regime argument actually needs.
+Note the gap dates are absent from the trading-day index entirely — no close means no row — so **their own** astro states are never encoded under any policy, including this one. Only their neighbours are. Encoding them would require a row with no target, which contradicts map decision 1.
 
 ### Known residue, deliberately unflagged
 
@@ -106,4 +112,4 @@ Each is individually indistinguishable from XBOM being wrong. A straddling-retur
 
 ### Consequence for the folds
 
-A gap is a second kind of fold boundary. The walk-forward arithmetic of [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each discontinuity like a purge edge for **target** spans, since a fold that looks contiguous by date is not contiguous by session. Encoder blocks may cross a gap freely, so a fold boundary and a gap are not the same constraint — `cal.spans_gap(first, last)` takes an explicit range so #10 can apply it to whichever span it means.
+Since nothing is filtered, [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) inherits **no** extra fold constraint — the session index is contiguous by construction and a gap is just another holiday. The one thing #10 should know is that 2008 carries the sample's densest run of them, so a fold boundary landing inside `2008-03-28`–`2008-11-28` sits in the least reliable stretch of the history. `cal.discontinuities` and `cal.spans_gap(first, last)` are available if the fold design wants to avoid it.
