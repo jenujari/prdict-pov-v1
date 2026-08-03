@@ -30,7 +30,11 @@ fi
 TTY_FLAG=""
 [ -t 0 ] && TTY_FLAG="-t"
 
+# Scripts import the `prdict` package from the repo root. The working directory
+# is /work, but `python scripts/foo.py` puts scripts/ on sys.path rather than
+# /work, so without this every `from prdict import ...` fails.
 exec podman run --rm -i $TTY_FLAG \
     -v "$REPO":/work:rw \
     -w /work \
+    -e PYTHONPATH=/work \
     "$IMAGE" "$@"
