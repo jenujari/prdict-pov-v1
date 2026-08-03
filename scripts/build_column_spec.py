@@ -50,6 +50,12 @@ CROSS_DIST_RE = re.compile(rf"^({'|'.join(PLANETS)})_({'|'.join(PLANETS)})_dist$
 # consequence of astronomy or of the bala formulae — not an artifact of this
 # particular 27-year sample. That distinction is load-bearing: it licenses
 # dropping them once, globally, instead of re-deciding inside every CV fold.
+# A numeric column whose entire range falls below this is constant in substance,
+# whatever the last bits of its floats say. The eight columns this catches sit at
+# 1e-7 or below; the smallest genuinely-varying feature (`sun_speed_lat`) spans
+# 8.5e-5, so there is nearly three orders of magnitude of daylight either side.
+CONSTANT_TOLERANCE = 1e-6
+
 CONSTANT_REASONS = {
     "sun_is_retro": "The Sun never appears retrograde from Earth.",
     "moon_is_retro": "The Moon never appears retrograde from Earth.",
@@ -61,6 +67,20 @@ CONSTANT_REASONS = {
     "ketu_vedha": "Vedha is not defined for the shadow planets; the source emits a fixed placeholder.",
     "rahu_distance": "The nodes are geometric points, not bodies — no physical distance exists.",
     "ketu_distance": "The nodes are geometric points, not bodies — no physical distance exists.",
+    "rahu_speed_dist": "Rate of change of a distance that does not exist; zero to machine precision (#30).",
+    "ketu_speed_dist": "Rate of change of a distance that does not exist; zero to machine precision (#30).",
+    "rahu_latitude": "A lunar node lies on the ecliptic by definition, so its latitude is identically zero (#30).",
+    "ketu_latitude": "A lunar node lies on the ecliptic by definition, so its latitude is identically zero (#30).",
+    "rahu_speed_lat": "Rate of change of a latitude that is identically zero (#30).",
+    "ketu_speed_lat": "Rate of change of a latitude that is identically zero (#30).",
+    "rahu_speed_long": (
+        "This file's Rahu is a *mean* node: rahu_longitude regresses at a fixed "
+        "0.052992 degrees per day (360 degrees / 18.6 years), matching the observed "
+        "day-over-day motion exactly, so the speed column is a constant (#30)."
+    ),
+    "ketu_speed_long": (
+        "Ketu is antipodal to Rahu, so it inherits the mean node's fixed rate (#30)."
+    ),
     "rahu_ketu_dist": "Rahu and Ketu are antipodal by construction, so their separation is always 180 degrees.",
     "sun_uday_bala": "Formula constant for the Sun.",
     "rahu_uday_bala": "Formula constant for the nodes.",
@@ -121,10 +141,15 @@ def classify_type(col: str, frame: pd.DataFrame, category_keys: set[str]) -> str
         return "categorical"
     if col.endswith("_longitude"):
         return "angular"
-    if CROSS_DIST_RE.match(col):
-        return "angular"
     if col.endswith("_nakshatra_pada") or col == "tithy":
         return "angular"
+    # The cross-planet `<a>_<b>_dist` columns are deliberately **not** angular.
+    # They hold an unwrapped absolute difference, so placing them on a circle
+    # would be the one transform that is wrong under any convention: sin is odd,
+    # so sin(|d|) folds two different configurations onto the same value. Kept
+    # as a linear passthrough instead — the source's own number, untransformed —
+    # alongside the separation pairs #7 recomputes from the longitudes. Which of
+    # the two encodings earns its place is left to feature selection (#12).
     return "linear_numeric"
 
 
@@ -136,11 +161,23 @@ def build() -> dict:
     all_columns = list(frame.columns)
 
     # --- Roles -------------------------------------------------------------
+    # A numeric column counts as constant when its whole range sits below
+    # CONSTANT_TOLERANCE, not only when its values are bit-identical. Eight
+    # Rahu/Ketu columns are zero (or fixed) to machine precision but carry noise
+    # in the last bits, which gives them thousands of distinct float values and
+    # let them past an exact-equality test — see #30 and kb/derived_audit.md.
+    def is_constant(column: str) -> bool:
+        series = frame[column]
+        if series.nunique(dropna=True) <= 1:
+            return True
+        if not pd.api.types.is_numeric_dtype(series) or pd.api.types.is_bool_dtype(series):
+            return False
+        return bool(float(series.max() - series.min()) < CONSTANT_TOLERANCE)
+
     constant = sorted(
         c
         for c in all_columns
-        if c not in (KEY, TARGET_SOURCE, *DROPPED_PRICE)
-        and frame[c].nunique(dropna=True) <= 1
+        if c not in (KEY, TARGET_SOURCE, *DROPPED_PRICE) and is_constant(c)
     )
     assigned = {KEY, TARGET_SOURCE, *DROPPED_PRICE, *constant}
     features = [c for c in all_columns if c not in assigned]

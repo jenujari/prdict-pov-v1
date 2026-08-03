@@ -1,6 +1,6 @@
 # Column specification — `nft50.csv`
 
-Generated 2026-08-02 by `scripts/build_column_spec.py`. Do not hand-edit — rerun the script.
+Generated 2026-08-03 by `scripts/build_column_spec.py`. Do not hand-edit — rerun the script.
 
 Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 
@@ -13,8 +13,8 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 | `key` | 1 | The date index. |
 | `target_source` | 1 | Close price — source of the label, never an input (map decision 5). |
 | `dropped_price` | 3 | Open/high/low, dropped with all price-derived features (map decision 5). |
-| `dropped_constant` | 20 | Single-valued across the file. All structural — see below. |
-| `feature` | 215 | Model inputs. |
+| `dropped_constant` | 28 | Single-valued across the file. All structural — see below. |
+| `feature` | 207 | Model inputs. |
 
 ## Types
 
@@ -22,9 +22,9 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 |------|-------|
 | `boolean` | 14 |
 | `categorical` | 67 |
-| `angular` | 53 |
-| `linear_numeric` | 81 |
-| **total** | **215** |
+| `angular` | 19 |
+| `linear_numeric` | 107 |
+| **total** | **207** |
 
 ### `boolean`
 
@@ -119,7 +119,7 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 
 ### `angular`
 
-53 columns. This spec fixes **membership only**. Each column's period and its sin/cos transform are decided in [#7](https://github.com/jenujari/prdict-pov-v1/issues/7).
+19 columns. This spec fixes **membership only**. Each column's period and its sin/cos transform are decided in [#7](https://github.com/jenujari/prdict-pov-v1/issues/7).
 
 - `tithy`
 - `sun_longitude`
@@ -140,44 +140,10 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 - `ketu_nakshatra_pada`
 - `mars_longitude`
 - `mars_nakshatra_pada`
-- `sun_mars_dist`
-- `sun_mercury_dist`
-- `sun_jupiter_dist`
-- `sun_venus_dist`
-- `sun_saturn_dist`
-- `sun_rahu_dist`
-- `sun_ketu_dist`
-- `moon_mars_dist`
-- `moon_mercury_dist`
-- `moon_jupiter_dist`
-- `moon_venus_dist`
-- `moon_saturn_dist`
-- `moon_rahu_dist`
-- `moon_ketu_dist`
-- `mars_mercury_dist`
-- `mars_jupiter_dist`
-- `mars_venus_dist`
-- `mars_saturn_dist`
-- `mars_rahu_dist`
-- `mars_ketu_dist`
-- `mercury_jupiter_dist`
-- `mercury_venus_dist`
-- `mercury_saturn_dist`
-- `mercury_rahu_dist`
-- `mercury_ketu_dist`
-- `jupiter_venus_dist`
-- `jupiter_saturn_dist`
-- `jupiter_rahu_dist`
-- `jupiter_ketu_dist`
-- `venus_saturn_dist`
-- `venus_rahu_dist`
-- `venus_ketu_dist`
-- `saturn_rahu_dist`
-- `saturn_ketu_dist`
 
 ### `linear_numeric`
 
-81 columns — latitudes (a narrow ±8.6 band, not cyclic), distances in AU, the three speed families, and the bala scores.
+107 columns — latitudes (a narrow ±8.6 band, not cyclic), distances in AU, the three speed families, and the bala scores.
 
 - `sun_latitude`
 - `sun_distance`
@@ -236,17 +202,9 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 - `jupiter_vakra_bala`
 - `jupiter_kshetra_bala`
 - `jupiter_navamsha_bala`
-- `rahu_latitude`
-- `rahu_speed_long`
-- `rahu_speed_lat`
-- `rahu_speed_dist`
 - `rahu_uchcha_bala`
 - `rahu_kshetra_bala`
 - `rahu_navamsha_bala`
-- `ketu_latitude`
-- `ketu_speed_long`
-- `ketu_speed_lat`
-- `ketu_speed_dist`
 - `ketu_uchcha_bala`
 - `ketu_kshetra_bala`
 - `ketu_navamsha_bala`
@@ -260,10 +218,44 @@ Resolves [#3](https://github.com/jenujari/prdict-pov-v1/issues/3).
 - `mars_vakra_bala`
 - `mars_kshetra_bala`
 - `mars_navamsha_bala`
+- `sun_mars_dist`
+- `sun_mercury_dist`
+- `sun_jupiter_dist`
+- `sun_venus_dist`
+- `sun_saturn_dist`
+- `sun_rahu_dist`
+- `sun_ketu_dist`
+- `moon_mars_dist`
+- `moon_mercury_dist`
+- `moon_jupiter_dist`
+- `moon_venus_dist`
+- `moon_saturn_dist`
+- `moon_rahu_dist`
+- `moon_ketu_dist`
+- `mars_mercury_dist`
+- `mars_jupiter_dist`
+- `mars_venus_dist`
+- `mars_saturn_dist`
+- `mars_rahu_dist`
+- `mars_ketu_dist`
+- `mercury_jupiter_dist`
+- `mercury_venus_dist`
+- `mercury_saturn_dist`
+- `mercury_rahu_dist`
+- `mercury_ketu_dist`
+- `jupiter_venus_dist`
+- `jupiter_saturn_dist`
+- `jupiter_rahu_dist`
+- `jupiter_ketu_dist`
+- `venus_saturn_dist`
+- `venus_rahu_dist`
+- `venus_ketu_dist`
+- `saturn_rahu_dist`
+- `saturn_ketu_dist`
 
 ## Availability: known-future vs past-only
 
-Map decision 3 called for splitting covariates into known-future and past-only. With price features dropped (decision 5), **every one of the 215 feature columns is `known_future`** — the ephemeris is computed, so it is fully populated through the end of the file. The build script asserts this rather than assuming it.
+Map decision 3 called for splitting covariates into known-future and past-only. With price features dropped (decision 5), **every one of the 207 feature columns is `known_future`** — the ephemeris is computed, so it is fully populated through the end of the file. The build script asserts this rather than assuming it.
 
 The practical consequence: the past-60 and future-30 blocks carry an **identical feature set**, so the 90-step window is simply contiguous and the encoder/decoder boundary is a slicing convention. This is the input [#11](https://github.com/jenujari/prdict-pov-v1/issues/11) was told to verify.
 
@@ -275,14 +267,18 @@ Handled by appending a `"none"` sentinel to the declared level list and filling 
 
 ## Constant columns
 
-All 20 constant columns are constant **by definition**, not by sampling accident. That is what licenses dropping them once, globally, rather than re-deciding inside every CV fold — the concern raised in [#10](https://github.com/jenujari/prdict-pov-v1/issues/10).
+All 28 constant columns are constant **by definition**, not by sampling accident. That is what licenses dropping them once, globally, rather than re-deciding inside every CV fold — the concern raised in [#10](https://github.com/jenujari/prdict-pov-v1/issues/10).
 
 | Column | Why constant |
 |--------|--------------|
 | `ketu_distance` | The nodes are geometric points, not bodies — no physical distance exists. |
 | `ketu_is_retro` | Ketu is a computed lunar node; it is always retrograde by convention. |
+| `ketu_latitude` | A lunar node lies on the ecliptic by definition, so its latitude is identically zero (#30). |
 | `ketu_sign_lordship` | Declared with two levels but only 'Enemy' occurs. Same full-cycle-coverage argument as rahu_sign_lordship. |
 | `ketu_speed_category` | Follows from ketu_is_retro — a permanently retrograde body is always 'vakra'. |
+| `ketu_speed_dist` | Rate of change of a distance that does not exist; zero to machine precision (#30). |
+| `ketu_speed_lat` | Rate of change of a latitude that is identically zero (#30). |
+| `ketu_speed_long` | Ketu is antipodal to Rahu, so it inherits the mean node's fixed rate (#30). |
 | `ketu_uday_bala` | Formula constant for the nodes. |
 | `ketu_vakra_bala` | Retrograde strength is maximal for a permanently retrograde body. |
 | `ketu_vedha` | Vedha is not defined for the shadow planets; the source emits a fixed placeholder. |
@@ -291,8 +287,12 @@ All 20 constant columns are constant **by definition**, not by sampling accident
 | `rahu_distance` | The nodes are geometric points, not bodies — no physical distance exists. |
 | `rahu_is_retro` | Rahu is a computed lunar node; it is always retrograde by convention. |
 | `rahu_ketu_dist` | Rahu and Ketu are antipodal by construction, so their separation is always 180 degrees. |
+| `rahu_latitude` | A lunar node lies on the ecliptic by definition, so its latitude is identically zero (#30). |
 | `rahu_sign_lordship` | Declared with two levels but only 'Enemy' occurs. Rahu traverses all twelve signs roughly every 18.6 years, so 27 years of history covers the full cycle many times over — the unobserved level is unreachable, not merely unsampled. |
 | `rahu_speed_category` | Follows from rahu_is_retro — a permanently retrograde body is always 'vakra'. |
+| `rahu_speed_dist` | Rate of change of a distance that does not exist; zero to machine precision (#30). |
+| `rahu_speed_lat` | Rate of change of a latitude that is identically zero (#30). |
+| `rahu_speed_long` | This file's Rahu is a *mean* node: rahu_longitude regresses at a fixed 0.052992 degrees per day (360 degrees / 18.6 years), matching the observed day-over-day motion exactly, so the speed column is a constant (#30). |
 | `rahu_uday_bala` | Formula constant for the nodes. |
 | `rahu_vakra_bala` | Retrograde strength is maximal for a permanently retrograde body. |
 | `rahu_vedha` | Vedha is not defined for the shadow planets; the source emits a fixed placeholder. |

@@ -12,14 +12,7 @@
     "pair_atomicity_note": "Feature selection (#12) and PCA (#13) must keep or drop a (sin, cos) pair together, scoring it by the better of its two members. A lone half is not a weaker encoding of the angle but a wrong one: sin alone identifies theta with 180 - theta, cos alone identifies theta with -theta."
   },
   "dropped_redundant": {
-    "ketu_longitude": "Ketu is antipodal to Rahu by construction, so this column is `rahu_longitude` + 180 on every row; its sin/cos pair is the exact negation of `rahu_longitude`'s and carries no independent information.",
-    "sun_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `sun_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `sun_rahu_dist`'s and carries no independent information.",
-    "moon_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `moon_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `moon_rahu_dist`'s and carries no independent information.",
-    "mars_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `mars_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `mars_rahu_dist`'s and carries no independent information.",
-    "mercury_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `mercury_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `mercury_rahu_dist`'s and carries no independent information.",
-    "jupiter_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `jupiter_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `jupiter_rahu_dist`'s and carries no independent information.",
-    "venus_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `venus_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `venus_rahu_dist`'s and carries no independent information.",
-    "saturn_ketu_dist": "Ketu is antipodal to Rahu by construction, so this column is `saturn_rahu_dist` + 180 on every row; its sin/cos pair is the exact negation of `saturn_rahu_dist`'s and carries no independent information."
+    "ketu_longitude": "Ketu is antipodal to Rahu by construction, so this column is `rahu_longitude` + 180 on every row; its sin/cos pair is the exact negation of `rahu_longitude`'s and carries no independent information."
   },
   "transforms": [
     {
@@ -283,8 +276,8 @@
       "to": "mars",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`mars_longitude` - `sun_longitude`) mod 360. The file's `sun_mars_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`mars_longitude` - `sun_longitude`) mod 360, and added alongside `sun_mars_dist`, which survives untransformed.",
       "emits": [
         "sun_mars_sep_sin",
         "sun_mars_sep_cos"
@@ -299,8 +292,8 @@
       "to": "mercury",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`mercury_longitude` - `sun_longitude`) mod 360. The file's `sun_mercury_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`mercury_longitude` - `sun_longitude`) mod 360, and added alongside `sun_mercury_dist`, which survives untransformed.",
       "emits": [
         "sun_mercury_sep_sin",
         "sun_mercury_sep_cos"
@@ -315,8 +308,8 @@
       "to": "jupiter",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`jupiter_longitude` - `sun_longitude`) mod 360. The file's `sun_jupiter_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `sun_longitude`) mod 360, and added alongside `sun_jupiter_dist`, which survives untransformed.",
       "emits": [
         "sun_jupiter_sep_sin",
         "sun_jupiter_sep_cos"
@@ -331,8 +324,8 @@
       "to": "venus",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`venus_longitude` - `sun_longitude`) mod 360. The file's `sun_venus_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`venus_longitude` - `sun_longitude`) mod 360, and added alongside `sun_venus_dist`, which survives untransformed.",
       "emits": [
         "sun_venus_sep_sin",
         "sun_venus_sep_cos"
@@ -347,8 +340,8 @@
       "to": "saturn",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`saturn_longitude` - `sun_longitude`) mod 360. The file's `sun_saturn_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`saturn_longitude` - `sun_longitude`) mod 360, and added alongside `sun_saturn_dist`, which survives untransformed.",
       "emits": [
         "sun_saturn_sep_sin",
         "sun_saturn_sep_cos"
@@ -363,8 +356,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `sun_longitude`) mod 360. The file's `sun_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `sun_longitude`) mod 360, and added alongside `sun_rahu_dist`, which survives untransformed.",
       "emits": [
         "sun_rahu_sep_sin",
         "sun_rahu_sep_cos"
@@ -379,8 +372,8 @@
       "to": "mars",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`mars_longitude` - `moon_longitude`) mod 360. The file's `moon_mars_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`mars_longitude` - `moon_longitude`) mod 360, and added alongside `moon_mars_dist`, which survives untransformed.",
       "emits": [
         "moon_mars_sep_sin",
         "moon_mars_sep_cos"
@@ -395,8 +388,8 @@
       "to": "mercury",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`mercury_longitude` - `moon_longitude`) mod 360. The file's `moon_mercury_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`mercury_longitude` - `moon_longitude`) mod 360, and added alongside `moon_mercury_dist`, which survives untransformed.",
       "emits": [
         "moon_mercury_sep_sin",
         "moon_mercury_sep_cos"
@@ -411,8 +404,8 @@
       "to": "jupiter",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`jupiter_longitude` - `moon_longitude`) mod 360. The file's `moon_jupiter_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `moon_longitude`) mod 360, and added alongside `moon_jupiter_dist`, which survives untransformed.",
       "emits": [
         "moon_jupiter_sep_sin",
         "moon_jupiter_sep_cos"
@@ -427,8 +420,8 @@
       "to": "venus",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`venus_longitude` - `moon_longitude`) mod 360. The file's `moon_venus_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`venus_longitude` - `moon_longitude`) mod 360, and added alongside `moon_venus_dist`, which survives untransformed.",
       "emits": [
         "moon_venus_sep_sin",
         "moon_venus_sep_cos"
@@ -443,8 +436,8 @@
       "to": "saturn",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`saturn_longitude` - `moon_longitude`) mod 360. The file's `moon_saturn_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`saturn_longitude` - `moon_longitude`) mod 360, and added alongside `moon_saturn_dist`, which survives untransformed.",
       "emits": [
         "moon_saturn_sep_sin",
         "moon_saturn_sep_cos"
@@ -459,8 +452,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `moon_longitude`) mod 360. The file's `moon_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `moon_longitude`) mod 360, and added alongside `moon_rahu_dist`, which survives untransformed.",
       "emits": [
         "moon_rahu_sep_sin",
         "moon_rahu_sep_cos"
@@ -475,8 +468,8 @@
       "to": "mercury",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`mercury_longitude` - `mars_longitude`) mod 360. The file's `mars_mercury_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`mercury_longitude` - `mars_longitude`) mod 360, and added alongside `mars_mercury_dist`, which survives untransformed.",
       "emits": [
         "mars_mercury_sep_sin",
         "mars_mercury_sep_cos"
@@ -491,8 +484,8 @@
       "to": "jupiter",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`jupiter_longitude` - `mars_longitude`) mod 360. The file's `mars_jupiter_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `mars_longitude`) mod 360, and added alongside `mars_jupiter_dist`, which survives untransformed.",
       "emits": [
         "mars_jupiter_sep_sin",
         "mars_jupiter_sep_cos"
@@ -507,8 +500,8 @@
       "to": "venus",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`venus_longitude` - `mars_longitude`) mod 360. The file's `mars_venus_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`venus_longitude` - `mars_longitude`) mod 360, and added alongside `mars_venus_dist`, which survives untransformed.",
       "emits": [
         "mars_venus_sep_sin",
         "mars_venus_sep_cos"
@@ -523,8 +516,8 @@
       "to": "saturn",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`saturn_longitude` - `mars_longitude`) mod 360. The file's `mars_saturn_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`saturn_longitude` - `mars_longitude`) mod 360, and added alongside `mars_saturn_dist`, which survives untransformed.",
       "emits": [
         "mars_saturn_sep_sin",
         "mars_saturn_sep_cos"
@@ -539,8 +532,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `mars_longitude`) mod 360. The file's `mars_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `mars_longitude`) mod 360, and added alongside `mars_rahu_dist`, which survives untransformed.",
       "emits": [
         "mars_rahu_sep_sin",
         "mars_rahu_sep_cos"
@@ -555,8 +548,8 @@
       "to": "jupiter",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`jupiter_longitude` - `mercury_longitude`) mod 360. The file's `mercury_jupiter_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`jupiter_longitude` - `mercury_longitude`) mod 360, and added alongside `mercury_jupiter_dist`, which survives untransformed.",
       "emits": [
         "mercury_jupiter_sep_sin",
         "mercury_jupiter_sep_cos"
@@ -571,8 +564,8 @@
       "to": "venus",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`venus_longitude` - `mercury_longitude`) mod 360. The file's `mercury_venus_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`venus_longitude` - `mercury_longitude`) mod 360, and added alongside `mercury_venus_dist`, which survives untransformed.",
       "emits": [
         "mercury_venus_sep_sin",
         "mercury_venus_sep_cos"
@@ -587,8 +580,8 @@
       "to": "saturn",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`saturn_longitude` - `mercury_longitude`) mod 360. The file's `mercury_saturn_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`saturn_longitude` - `mercury_longitude`) mod 360, and added alongside `mercury_saturn_dist`, which survives untransformed.",
       "emits": [
         "mercury_saturn_sep_sin",
         "mercury_saturn_sep_cos"
@@ -603,8 +596,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `mercury_longitude`) mod 360. The file's `mercury_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `mercury_longitude`) mod 360, and added alongside `mercury_rahu_dist`, which survives untransformed.",
       "emits": [
         "mercury_rahu_sep_sin",
         "mercury_rahu_sep_cos"
@@ -619,8 +612,8 @@
       "to": "venus",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`venus_longitude` - `jupiter_longitude`) mod 360. The file's `jupiter_venus_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`venus_longitude` - `jupiter_longitude`) mod 360, and added alongside `jupiter_venus_dist`, which survives untransformed.",
       "emits": [
         "jupiter_venus_sep_sin",
         "jupiter_venus_sep_cos"
@@ -635,8 +628,8 @@
       "to": "saturn",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`saturn_longitude` - `jupiter_longitude`) mod 360. The file's `jupiter_saturn_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`saturn_longitude` - `jupiter_longitude`) mod 360, and added alongside `jupiter_saturn_dist`, which survives untransformed.",
       "emits": [
         "jupiter_saturn_sep_sin",
         "jupiter_saturn_sep_cos"
@@ -651,8 +644,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `jupiter_longitude`) mod 360. The file's `jupiter_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `jupiter_longitude`) mod 360, and added alongside `jupiter_rahu_dist`, which survives untransformed.",
       "emits": [
         "jupiter_rahu_sep_sin",
         "jupiter_rahu_sep_cos"
@@ -667,8 +660,8 @@
       "to": "saturn",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`saturn_longitude` - `venus_longitude`) mod 360. The file's `venus_saturn_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`saturn_longitude` - `venus_longitude`) mod 360, and added alongside `venus_saturn_dist`, which survives untransformed.",
       "emits": [
         "venus_saturn_sep_sin",
         "venus_saturn_sep_cos"
@@ -683,8 +676,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `venus_longitude`) mod 360. The file's `venus_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `venus_longitude`) mod 360, and added alongside `venus_rahu_dist`, which survives untransformed.",
       "emits": [
         "venus_rahu_sep_sin",
         "venus_rahu_sep_cos"
@@ -699,8 +692,8 @@
       "to": "rahu",
       "period": 360.0,
       "origin": 0.0,
-      "note": "RECOMPUTED as (`rahu_longitude` - `saturn_longitude`) mod 360. The file's `saturn_rahu_dist` is an unwrapped absolute difference and is discarded.",
-      "replaces_source": true,
+      "replaces_source": false,
+      "note": "RECOMPUTED as (`rahu_longitude` - `saturn_longitude`) mod 360, and added alongside `saturn_rahu_dist`, which survives untransformed.",
       "emits": [
         "saturn_rahu_sep_sin",
         "saturn_rahu_sep_cos"
@@ -722,14 +715,16 @@
     }
   ],
   "counts": {
-    "angular_in_column_spec": 53,
-    "dropped_redundant": 8,
-    "angular_transformed": 45,
+    "angular_in_column_spec": 19,
+    "dropped_redundant": 1,
+    "angular_transformed": 18,
+    "separations_added": 27,
+    "dist_columns_kept": 34,
     "extra_cyclic_views": 1,
     "emitted_columns": 92,
-    "features_before": 215,
-    "features_after": 207,
-    "model_input_width": 254
+    "features_before": 207,
+    "features_after": 206,
+    "model_input_width": 280
   },
   "evidence": {
     "dist_is_unwrapped_abs_diff": {
@@ -749,6 +744,10 @@
       "offsets_observed": [
         180.0
       ]
+    },
+    "ketu_dist_not_redundant": {
+      "max_abs_correlation_with_rahu_twin": 0.6898062102266825,
+      "min_linear_fit_residual_degrees": 140.6642327970145
     },
     "ketu_pada_survives": {
       "determined_by_rahu_pada": false,

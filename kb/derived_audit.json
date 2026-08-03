@@ -1,0 +1,805 @@
+{
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/30",
+  "source": {
+    "file": "nft50.csv",
+    "rows": 9893
+  },
+  "families": {
+    "sign_and_navamsa": {
+      "sign": {
+        "sun": 0,
+        "moon": 0,
+        "mars": 0,
+        "mercury": 0,
+        "jupiter": 0,
+        "venus": 0,
+        "saturn": 0,
+        "rahu": 0,
+        "ketu": 0
+      },
+      "navamsa_sign": {
+        "sun": 0,
+        "moon": 0,
+        "mars": 0,
+        "mercury": 0,
+        "jupiter": 0,
+        "venus": 0,
+        "saturn": 0,
+        "rahu": 0,
+        "ketu": 0
+      }
+    },
+    "sign_lordship": {
+      "sun": {
+        "mismatches": 0,
+        "levels": 4
+      },
+      "moon": {
+        "mismatches": 0,
+        "levels": 3
+      },
+      "mars": {
+        "mismatches": 0,
+        "levels": 4
+      },
+      "mercury": {
+        "mismatches": 0,
+        "levels": 4
+      },
+      "jupiter": {
+        "mismatches": 0,
+        "levels": 4
+      },
+      "venus": {
+        "mismatches": 0,
+        "levels": 4
+      },
+      "saturn": {
+        "mismatches": 0,
+        "levels": 4
+      },
+      "rahu": {
+        "constant": "Enemy"
+      },
+      "ketu": {
+        "constant": "Enemy"
+      }
+    },
+    "uchcha_bala": {
+      "sun": {
+        "peak_longitude": 10.020328071037,
+        "reference_longitude": 10.0,
+        "max_error": 2.7000623958883807e-13,
+        "verdict": "exact"
+      },
+      "moon": {
+        "peak_longitude": 33.0585543197147,
+        "reference_longitude": 33.0,
+        "max_error": 2.8421709430404007e-13,
+        "verdict": "exact"
+      },
+      "mars": {
+        "peak_longitude": 297.89687736974,
+        "reference_longitude": 298.0,
+        "max_error": 2.5579538487363607e-13,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "peak_longitude": 164.946869243217,
+        "reference_longitude": 165.0,
+        "max_error": 2.7000623958883807e-13,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "peak_longitude": 94.9922117477488,
+        "reference_longitude": 95.0,
+        "max_error": 2.7000623958883807e-13,
+        "verdict": "exact"
+      },
+      "venus": {
+        "peak_longitude": 357.004895011658,
+        "reference_longitude": 357.0,
+        "max_error": 2.7000623958883807e-13,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "peak_longitude": 20.0406641065524,
+        "reference_longitude": 20.0,
+        "max_error": 2.7000623958883807e-13,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "peak_longitude": 80.0082438259396,
+        "reference_longitude": 80.0,
+        "max_error": 2.7000623958883807e-13,
+        "verdict": "exact"
+      },
+      "ketu": {
+        "peak_longitude": 260.0082438259396,
+        "reference_longitude": 260.0,
+        "max_error": 2.8421709430404007e-13,
+        "verdict": "exact"
+      }
+    },
+    "kshetra_bala": {
+      "sun": {
+        "max_error": 3.439026841078885e-12,
+        "verdict": "exact"
+      },
+      "moon": {
+        "max_error": 3.382183422218077e-12,
+        "verdict": "exact"
+      },
+      "mars": {
+        "max_error": 3.453237695794087e-12,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "max_error": 3.453237695794087e-12,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "max_error": 3.460343123151688e-12,
+        "verdict": "exact"
+      },
+      "venus": {
+        "max_error": 3.460343123151688e-12,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "max_error": 3.467448550509289e-12,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "max_error": 9.023892744153272e-13,
+        "verdict": "exact"
+      },
+      "ketu": {
+        "max_error": 9.947598300641403e-13,
+        "verdict": "exact"
+      }
+    },
+    "navamsha_bala": {
+      "sun": {
+        "max_error": 3.112532453997119e-11,
+        "verdict": "exact"
+      },
+      "moon": {
+        "max_error": 3.149125404888764e-11,
+        "verdict": "exact"
+      },
+      "mars": {
+        "max_error": 3.134559278805682e-11,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "max_error": 3.140598892059643e-11,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "max_error": 3.147704319417244e-11,
+        "verdict": "exact"
+      },
+      "venus": {
+        "max_error": 3.168310058754287e-11,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "max_error": 3.12283532366564e-11,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "max_error": 7.93853871527972e-12,
+        "verdict": "exact"
+      },
+      "ketu": {
+        "max_error": 8.682832230988424e-12,
+        "verdict": "exact"
+      }
+    },
+    "uday_bala": {
+      "sun": {
+        "constant": 100.0,
+        "verdict": "degenerate"
+      },
+      "moon": {
+        "orb_direct": 12.0,
+        "orb_retrograde": 12.0,
+        "ceiling": 180.0,
+        "max_error": 6.252776074688882e-13,
+        "verdict": "exact"
+      },
+      "mars": {
+        "orb_direct": 17.0,
+        "orb_retrograde": 17.0,
+        "ceiling": 180.0,
+        "max_error": 6.252776074688882e-13,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "orb_direct": 14.0,
+        "orb_retrograde": 12.0,
+        "ceiling": 27.0,
+        "max_error": 7.87192533380221e-12,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "orb_direct": 11.0,
+        "orb_retrograde": 11.0,
+        "ceiling": 180.0,
+        "max_error": 6.501466032204917e-13,
+        "verdict": "exact"
+      },
+      "venus": {
+        "orb_direct": 10.0,
+        "orb_retrograde": 8.0,
+        "ceiling": 47.0,
+        "max_error": 2.7569058147491887e-12,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "orb_direct": 15.0,
+        "orb_retrograde": 15.0,
+        "ceiling": 180.0,
+        "max_error": 6.323830348264892e-13,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "constant": 0.0,
+        "verdict": "degenerate"
+      },
+      "ketu": {
+        "constant": 0.0,
+        "verdict": "degenerate"
+      }
+    },
+    "vakra_bala": {
+      "sun": {
+        "constant": 0.0,
+        "verdict": "degenerate"
+      },
+      "moon": {
+        "constant": 0.0,
+        "verdict": "degenerate"
+      },
+      "mars": {
+        "slope": -229.00798321829498,
+        "intercept": 1.0521279201745802e-14,
+        "reference_speed": 0.436666,
+        "max_error": 1.7053025658242404e-13,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "slope": -66.66666666666667,
+        "intercept": 1.0374095893436092e-14,
+        "reference_speed": 1.5,
+        "max_error": 3.979039320256561e-13,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "slope": -731.7108863945678,
+        "intercept": 7.784978609640324e-15,
+        "reference_speed": 0.136666,
+        "max_error": 4.405364961712621e-13,
+        "verdict": "exact"
+      },
+      "venus": {
+        "slope": -145.6312093506888,
+        "intercept": 5.29125775646183e-15,
+        "reference_speed": 0.6866659999999994,
+        "max_error": 1.8474111129762605e-13,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "slope": -1200.0004800001916,
+        "intercept": 2.0522003705009796e-14,
+        "reference_speed": 0.08333330000000003,
+        "max_error": 1.2789769243681803e-13,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "constant": 100.0,
+        "verdict": "degenerate"
+      },
+      "ketu": {
+        "constant": 100.0,
+        "verdict": "degenerate"
+      }
+    },
+    "speed_category": {
+      "sun": {
+        "violations": 0,
+        "levels_used": 6,
+        "verdict": "exact"
+      },
+      "moon": {
+        "violations": 0,
+        "levels_used": 6,
+        "verdict": "exact"
+      },
+      "mars": {
+        "violations": 0,
+        "levels_used": 9,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "violations": 0,
+        "levels_used": 9,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "violations": 0,
+        "levels_used": 9,
+        "verdict": "exact"
+      },
+      "venus": {
+        "violations": 0,
+        "levels_used": 9,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "violations": 0,
+        "levels_used": 9,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "constant": "vakra",
+        "verdict": "degenerate"
+      },
+      "ketu": {
+        "constant": "vakra",
+        "verdict": "degenerate"
+      }
+    },
+    "vedha": {
+      "sun": {
+        "mapping": {
+          "ati-mand": "no",
+          "ati-sheeghra": "left",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "left",
+          "sheeghra": "left"
+        },
+        "verdict": "exact"
+      },
+      "moon": {
+        "mapping": {
+          "ati-mand": "front",
+          "ati-sheeghra": "left",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "left",
+          "sheeghra": "left"
+        },
+        "verdict": "exact"
+      },
+      "mars": {
+        "mapping": {
+          "ati-mand": "front",
+          "ati-sheeghra": "left",
+          "ati-vakra": "right",
+          "kutil": "right",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "front",
+          "sheeghra": "front",
+          "vakra": "right"
+        },
+        "verdict": "exact"
+      },
+      "mercury": {
+        "mapping": {
+          "ati-mand": "front",
+          "ati-sheeghra": "left",
+          "ati-vakra": "right",
+          "kutil": "right",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "front",
+          "sheeghra": "front",
+          "vakra": "right"
+        },
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "mapping": {
+          "ati-mand": "front",
+          "ati-sheeghra": "left",
+          "ati-vakra": "right",
+          "kutil": "right",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "front",
+          "sheeghra": "front",
+          "vakra": "right"
+        },
+        "verdict": "exact"
+      },
+      "venus": {
+        "mapping": {
+          "ati-mand": "front",
+          "ati-sheeghra": "left",
+          "ati-vakra": "right",
+          "kutil": "right",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "front",
+          "sheeghra": "front",
+          "vakra": "right"
+        },
+        "verdict": "exact"
+      },
+      "saturn": {
+        "mapping": {
+          "ati-mand": "front",
+          "ati-sheeghra": "left",
+          "ati-vakra": "right",
+          "kutil": "right",
+          "madhyam": "front",
+          "mand": "front",
+          "sama": "front",
+          "sheeghra": "front",
+          "vakra": "right"
+        },
+        "verdict": "exact"
+      },
+      "rahu": {
+        "mapping": {
+          "vakra": "left"
+        },
+        "verdict": "exact"
+      },
+      "ketu": {
+        "mapping": {
+          "vakra": "left"
+        },
+        "verdict": "exact"
+      }
+    },
+    "vedha_target": {
+      "sun": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 2685,
+        "verdict": "exact"
+      },
+      "moon": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "mars": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "mercury": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "jupiter": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "venus": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "saturn": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "rahu": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      },
+      "ketu": {
+        "determined_by": [
+          "nakshatra_name",
+          "vedha"
+        ],
+        "nulls": 0,
+        "verdict": "exact"
+      }
+    },
+    "sun_vedha_target_null_rule": "sun_speed_category == 'ati-mand'",
+    "rates": {
+      "speed_dist": {
+        "sun": {
+          "correlation": 0.9999999843913971,
+          "slope": 0.999946654218981,
+          "verdict": "consistent"
+        },
+        "moon": {
+          "correlation": 0.9999842900381637,
+          "slope": 0.9899432178804097,
+          "verdict": "consistent"
+        },
+        "mars": {
+          "correlation": 0.9999999500004658,
+          "slope": 0.9999825636109158,
+          "verdict": "consistent"
+        },
+        "mercury": {
+          "correlation": 0.9999996987833725,
+          "slope": 0.9993073197993497,
+          "verdict": "consistent"
+        },
+        "jupiter": {
+          "correlation": 0.9999998413914044,
+          "slope": 0.9999539324504312,
+          "verdict": "consistent"
+        },
+        "venus": {
+          "correlation": 0.9999999850938156,
+          "slope": 0.9999615585225924,
+          "verdict": "consistent"
+        },
+        "saturn": {
+          "correlation": 0.9999995180683329,
+          "slope": 0.9999542351179255,
+          "verdict": "consistent"
+        },
+        "rahu": {
+          "verdict": "degenerate",
+          "range": 2.1175823681357603e-21
+        },
+        "ketu": {
+          "verdict": "degenerate",
+          "range": 2.1175823681357603e-21
+        }
+      },
+      "speed_lat": {
+        "sun": {
+          "correlation": 0.999950993813184,
+          "slope": 0.9910442361094205,
+          "verdict": "consistent"
+        },
+        "moon": {
+          "correlation": 0.9999950430236307,
+          "slope": 0.9908015386094849,
+          "verdict": "consistent"
+        },
+        "mars": {
+          "correlation": 0.9999999651361416,
+          "slope": 0.999927173139833,
+          "verdict": "consistent"
+        },
+        "mercury": {
+          "correlation": 0.9999991820504831,
+          "slope": 0.9987458076122075,
+          "verdict": "consistent"
+        },
+        "jupiter": {
+          "correlation": 0.9999742930237575,
+          "slope": 1.0000037930102066,
+          "verdict": "consistent"
+        },
+        "venus": {
+          "correlation": 0.9999999365553462,
+          "slope": 0.999729860075541,
+          "verdict": "consistent"
+        },
+        "saturn": {
+          "correlation": 0.9999959108923065,
+          "slope": 0.9999956432761374,
+          "verdict": "consistent"
+        },
+        "rahu": {
+          "verdict": "degenerate",
+          "range": 9.44354324245272e-18
+        },
+        "ketu": {
+          "verdict": "degenerate",
+          "range": 9.44354324245272e-18
+        }
+      },
+      "speed_long": {
+        "sun": {
+          "correlation": 0.99999999582698,
+          "slope": 0.9999497021420395,
+          "verdict": "consistent"
+        },
+        "moon": {
+          "correlation": 0.9999889325997265,
+          "slope": 0.9904781417588262,
+          "verdict": "consistent"
+        },
+        "mars": {
+          "correlation": 0.9999999956783284,
+          "slope": 0.9999546445769423,
+          "verdict": "consistent"
+        },
+        "mercury": {
+          "correlation": 0.9999992694183442,
+          "slope": 0.9990841301035684,
+          "verdict": "consistent"
+        },
+        "jupiter": {
+          "correlation": 0.9999999819953104,
+          "slope": 0.9999527951983348,
+          "verdict": "consistent"
+        },
+        "venus": {
+          "correlation": 0.9999999708598981,
+          "slope": 0.9998701983657188,
+          "verdict": "consistent"
+        },
+        "saturn": {
+          "correlation": 0.9999999821858152,
+          "slope": 0.9999493499762282,
+          "verdict": "consistent"
+        },
+        "rahu": {
+          "verdict": "degenerate",
+          "range": 1.0943600019935884e-07
+        },
+        "ketu": {
+          "verdict": "degenerate",
+          "range": 1.0943600019935884e-07
+        }
+      }
+    }
+  },
+  "prune_survival": {
+    "threshold": 0.95,
+    "uchcha_bala": {
+      "sun": {
+        "r_sin": 0.17399833640035745,
+        "r_cos": 0.9847172965616302,
+        "survives": false
+      },
+      "moon": {
+        "r_sin": 0.544728035048364,
+        "r_cos": 0.8387638099286273,
+        "survives": true
+      },
+      "mars": {
+        "r_sin": 0.8856391732475213,
+        "r_cos": 0.454356363067926,
+        "survives": true
+      },
+      "mercury": {
+        "r_sin": 0.2634882259005339,
+        "r_cos": 0.9658380174407614,
+        "survives": false
+      },
+      "jupiter": {
+        "r_sin": 0.9963904375569622,
+        "r_cos": 0.04130722158796139,
+        "survives": false
+      },
+      "venus": {
+        "r_sin": 0.051646768928656536,
+        "r_cos": 0.9986734681553501,
+        "survives": false
+      },
+      "saturn": {
+        "r_sin": 0.3441152324003106,
+        "r_cos": 0.9272587865918963,
+        "survives": true
+      },
+      "rahu": {
+        "r_sin": 0.9851690484309724,
+        "r_cos": 0.16056768407142857,
+        "survives": false
+      }
+    },
+    "ketu_duplicates_rahu": {
+      "ketu_uchcha_bala": 1.1368683772161603e-13,
+      "ketu_kshetra_bala": 1.0302869668521453e-13,
+      "ketu_navamsha_bala": 1.0018652574217413e-12
+    },
+    "survivors": [
+      "mars_uchcha_bala",
+      "moon_uchcha_bala",
+      "saturn_uchcha_bala"
+    ]
+  },
+  "degenerate_columns": {
+    "ketu_latitude": {
+      "range": 9.67018828027158e-15,
+      "std": 1.3430701462794919e-15,
+      "value": -5.464902968062448e-19,
+      "distinct_float_values": 29,
+      "still_a_feature": false
+    },
+    "ketu_speed_dist": {
+      "range": 2.1175823681357603e-21,
+      "std": 2.0294174687845582e-22,
+      "value": 7.872895076940131e-25,
+      "distinct_float_values": 175,
+      "still_a_feature": false
+    },
+    "ketu_speed_lat": {
+      "range": 9.44354324245272e-18,
+      "std": 1.2063339416631943e-18,
+      "value": 1.8546379279512737e-20,
+      "distinct_float_values": 170,
+      "still_a_feature": false
+    },
+    "ketu_speed_long": {
+      "range": 1.0943600019935884e-07,
+      "std": 1.4547238982979074e-08,
+      "value": -0.052992006687661256,
+      "distinct_float_values": 4843,
+      "still_a_feature": false
+    },
+    "rahu_latitude": {
+      "range": 9.67018828027158e-15,
+      "std": 1.3430701462794919e-15,
+      "value": -5.464902968062448e-19,
+      "distinct_float_values": 29,
+      "still_a_feature": false
+    },
+    "rahu_speed_dist": {
+      "range": 2.1175823681357603e-21,
+      "std": 2.0294174687845582e-22,
+      "value": 7.872895076940131e-25,
+      "distinct_float_values": 175,
+      "still_a_feature": false
+    },
+    "rahu_speed_lat": {
+      "range": 9.44354324245272e-18,
+      "std": 1.2063339416631943e-18,
+      "value": 1.8546379279512737e-20,
+      "distinct_float_values": 170,
+      "still_a_feature": false
+    },
+    "rahu_speed_long": {
+      "range": 1.0943600019935884e-07,
+      "std": 1.4547238982979074e-08,
+      "value": -0.052992006687661256,
+      "distinct_float_values": 4843,
+      "still_a_feature": false
+    }
+  },
+  "summary": {
+    "miscomputed": [],
+    "degenerate": [
+      "ketu_latitude",
+      "ketu_speed_dist",
+      "ketu_speed_lat",
+      "ketu_speed_long",
+      "rahu_latitude",
+      "rahu_speed_dist",
+      "rahu_speed_lat",
+      "rahu_speed_long"
+    ],
+    "unverifiable": [],
+    "ketu_duplicates": [
+      "ketu_kshetra_bala",
+      "ketu_navamsha_bala",
+      "ketu_uchcha_bala"
+    ]
+  }
+}
