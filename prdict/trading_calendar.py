@@ -148,12 +148,16 @@ def load_calendar(path: Path = CALENDAR_PATH) -> TradingCalendar:
 
 
 def restrict(frame: pd.DataFrame, cal: TradingCalendar, key: str = "record_date") -> pd.DataFrame:
-    """Collapse a calendar-daily frame onto the trading-day index.
+    """Collapse a calendar-daily frame onto the trading-day index, ascending.
 
     Map decision 1: no forward-fill, no synthetic zero-return rows — non-trading
     days simply leave.
+
+    The sort is not cosmetic. `nft50.csv` is stored newest-first, so a caller
+    that trusted file order would read the close series backwards and negate
+    every return; sorting here means no downstream stage has to know.
     """
-    kept = frame[frame[key].isin(cal.sessions)].reset_index(drop=True)
+    kept = frame[frame[key].isin(cal.sessions)].sort_values(key).reset_index(drop=True)
     if len(kept) != len(cal.sessions):
         missing = cal.sessions.difference(pd.DatetimeIndex(kept[key]))
         raise ValueError(
