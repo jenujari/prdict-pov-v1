@@ -71,7 +71,11 @@ Because the effect is a shift rather than a point error, there is no partial cre
 
 Resolves [#25](https://github.com/jenujari/prdict-pov-v1/issues/25). The observed index is authoritative for *which dates the market was open* — except where the source is simply missing rows. A missing session does not leave a hole: under map decision 1 the index collapses to trading days, so the two sessions either side become neighbours and the step between them silently spans more than one session's move.
 
-**Policy: sessions are kept; windows whose span crosses a gap are dropped.** Sessions are never dropped — only windows are filtered, so an undamaged 2008 session still trains any window that does not reach across a gap.
+**Policy: sessions are kept; an origin is dropped only when its *target* crosses a gap.**
+
+The encoder block is deliberately **not** checked. Map decision 5 drops every price-derived feature, so the past-60 block is astro plus calendar only and carries no price at all — and the astro columns are complete and correct on every gap date. A missing price cannot corrupt an input that contains no price. What it does corrupt is the target, where `log(C_t/C_{t-1})` silently spans two sessions' move while being labelled as one.
+
+This distinction is worth real data. Requiring the whole window to be clean would leave 6167 origins instead of 6301, and — the part that matters — would put only **9 of 2008's 38 >4% sessions** inside a retained encoder block. Under the target-only rule **all 38** are retained. 2008 is the most extreme regime in the sample; a model that has never encoded its planetary configurations cannot recognise them recurring.
 
 2008 is missing 21 sessions against XBOM's 246 — 29 dates XBOM calls sessions, 22 of them Fridays, spanning 2008-03-28 to 2008-11-28. Not a crash closure (the deficit starts in March and peaks in July; the crash days are all present) and not a date shift (shifting by +-1 does not improve agreement). Unrepairable: the rows carry all 235 astro columns but no price, and the map rules out new data sources.
 
@@ -84,7 +88,9 @@ By **systematic source failure**, not date by date:
 1. A year with at least **3** XBOM mismatches. 2008 has 29; every other year has 0–2, so any threshold in 3–28 isolates it.
 2. A run of at least **4** consecutive closed weekdays, which no Indian holiday pattern produces. This is the only detector reaching before XBOM's 2006-08-03 start, and it fires exactly once, on `2002-08-27`–`2002-08-30`.
 
-That gives **33 gap dates** and **28 discontinuities** in the session index, costing **281** of 6448 trainable origins (4.4%).
+That gives **33 gap dates** and **28 discontinuities** in the session index, costing **147** of 6448 trainable origins (2.3%).
+
+Note this counts only origins whose *target* is damaged. The 29 gap dates themselves are absent from the trading-day index entirely — they have no close, so they cannot be rows — which means their own astro states are never encoded under any policy. Their neighbours are, which is what the crash-regime argument actually needs.
 
 ### Known residue, deliberately unflagged
 
@@ -100,4 +106,4 @@ Each is individually indistinguishable from XBOM being wrong. A straddling-retur
 
 ### Consequence for the folds
 
-A gap is a second kind of fold boundary. The walk-forward arithmetic of [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each discontinuity like a purge edge, since a window may not span one — otherwise a fold that looks contiguous by date is not contiguous by session.
+A gap is a second kind of fold boundary. The walk-forward arithmetic of [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each discontinuity like a purge edge for **target** spans, since a fold that looks contiguous by date is not contiguous by session. Encoder blocks may cross a gap freely, so a fold boundary and a gap are not the same constraint — `cal.spans_gap(first, last)` takes an explicit range so #10 can apply it to whichever span it means.

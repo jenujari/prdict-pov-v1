@@ -74,17 +74,20 @@ class TradingCalendar:
         the full known-covariate block; pass `horizon` instead to ask only for
         the sessions the target actually spans.
 
-        Origins whose window crosses a gap are excluded: under map decision 1
-        the index has no holes, so a missing session turns one step into a
-        multi-session move that the model would otherwise learn as normal. #25
-        drops the window, never the session — an undamaged session still trains
-        every window that does not reach across a gap.
+        Origins whose **target** crosses a gap are excluded. The encoder block
+        is deliberately not checked: map decision 5 drops every price-derived
+        feature, so the past-60 block is astro plus calendar only and carries no
+        price at all. A missing price cannot corrupt it — the astro columns are
+        complete and correct on every gap date. Only the target is damaged,
+        where `log(C_t/C_{t-1})` silently spans two sessions' move.
+
+        Letting the encoder span a gap keeps the 2008 and 2002 crash regimes in
+        training: all 38 of 2008's >4% sessions appear in a retained encoder
+        block, against 9 when the whole window had to be clean.
         """
         ahead = self.future if forward_steps is None else forward_steps
         candidates = range(self.past - 1, len(self.sessions) - ahead)
-        keep = [
-            i for i in candidates if not self.spans_gap(i - self.past + 1, i + ahead)
-        ]
+        keep = [i for i in candidates if not self.spans_gap(i, i + self.horizon)]
         return self.sessions[keep]
 
     def trainable_origins(self) -> pd.DatetimeIndex:
@@ -115,9 +118,9 @@ class TradingCalendar:
                 f"{pd.Timestamp(origin).date()} has no full future-{self.future} block "
                 f"— the last such origin is {self.origins()[-1].date()}"
             )
-        if self.spans_gap(i - self.past + 1, i + self.future):
+        if self.spans_gap(i, i + self.horizon):
             raise ValueError(
-                f"the window at {pd.Timestamp(origin).date()} crosses a gap in the "
+                f"the target at {pd.Timestamp(origin).date()} crosses a gap in the "
                 "source data — see the gaps section of kb/trading_calendar.md"
             )
         return {
@@ -184,10 +187,12 @@ def main() -> None:
     print(f"trainable origins: {len(train)}  {train[0].date()} → {train[-1].date()}")
     print(f"forward origins  : {len(fwd)}  {fwd[0].date()} → {fwd[-1].date()}")
 
-    # No surviving window may step across a gap.
-    leaks = [d for d in train if cal.spans_gap(
-        cal.position(d) - cal.past + 1, cal.position(d) + cal.horizon)]
-    print(f"trainable origins whose window crosses a gap: {len(leaks)}")
+    # No surviving target may step across a gap; encoders may, and should.
+    leaks = [d for d in train if cal.spans_gap(cal.position(d), cal.position(d) + cal.horizon)]
+    spanning = [d for d in train
+                if cal.spans_gap(cal.position(d) - cal.past + 1, cal.position(d))]
+    print(f"trainable origins whose target crosses a gap : {len(leaks)}")
+    print(f"trainable origins whose encoder spans a gap  : {len(spanning)} (allowed)")
 
     last = cal.window(fwd[-1])
     print(f"\nlast forward window, origin {fwd[-1].date()}")

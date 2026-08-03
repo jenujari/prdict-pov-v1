@@ -238,7 +238,7 @@
   },
   "gaps": {
     "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/25",
-    "policy": "sessions are kept; windows whose span crosses a gap are dropped",
+    "policy": "sessions are kept; origins whose *target* crosses a gap are dropped. The encoder block is not checked \u2014 decision 5 leaves it astro-only, so a missing price cannot corrupt it.",
     "detection": {
       "year_threshold": 3,
       "run_length": 4,
@@ -297,9 +297,14 @@
       "n_gap_dates": 33,
       "n_discontinuities": 28,
       "origins_before": 6448,
-      "origins_after": 6167,
-      "origins_dropped": 281,
-      "fraction_dropped": 0.0436
+      "origins_after": 6301,
+      "origins_dropped": 147,
+      "fraction_dropped": 0.0228,
+      "if_encoder_also_clean": {
+        "origins_after": 6167,
+        "origins_dropped": 281,
+        "note": "rejected \u2014 costs the 2008 and 2002 crash regimes for no correctness gain, since the encoder carries no price"
+      }
     }
   },
   "known_gaps": {

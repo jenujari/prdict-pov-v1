@@ -156,29 +156,43 @@ def weekday_rule_error(frame: pd.DataFrame) -> dict:
 
 
 def gap_cost(history: pd.DatetimeIndex) -> dict:
-    """How many trainable origins the gap-aware window filter removes.
+    """How many trainable origins the gap filter removes.
 
-    An origin's window covers `past` sessions back and `horizon` forward. It is
-    dropped when any step inside that span crosses a gap — the step is then a
-    multi-session move the model would otherwise learn as a single one.
+    Only the **target** is checked. Map decision 5 drops every price-derived
+    feature, so the past-60 encoder block is astro plus calendar only — a
+    missing price cannot corrupt it, and the astro columns are complete on every
+    gap date. Only `log(C_t/C_{t-1})` is damaged, where a step spans two
+    sessions' move while being labelled as one.
+
+    The stricter alternative — requiring the encoder to be clean too — is
+    reported alongside, because it is what the crash regimes cost.
     """
     gaps = pd.DatetimeIndex(GAP_DATES)
-    positions = {
-        int(p) for p in history.get_indexer(gaps, method="bfill") if p > 0
-    }
+    positions = {int(p) for p in history.get_indexer(gaps, method="bfill") if p > 0}
     total = len(history) - PAST - HORIZON + 1
-    kept = sum(
-        1
-        for i in range(PAST - 1, len(history) - HORIZON)
-        if not any(i - PAST + 1 < p <= i + HORIZON for p in positions)
-    )
+    candidates = range(PAST - 1, len(history) - HORIZON)
+
+    def kept(lo_offset: int) -> int:
+        return sum(
+            1
+            for i in candidates
+            if not any(i + lo_offset < p <= i + HORIZON for p in positions)
+        )
+
+    target_only, whole_window = kept(0), kept(-PAST + 1)
     return {
         "n_gap_dates": len(gaps),
         "n_discontinuities": len(positions),
         "origins_before": total,
-        "origins_after": kept,
-        "origins_dropped": total - kept,
-        "fraction_dropped": round((total - kept) / total, 4),
+        "origins_after": target_only,
+        "origins_dropped": total - target_only,
+        "fraction_dropped": round((total - target_only) / total, 4),
+        "if_encoder_also_clean": {
+            "origins_after": whole_window,
+            "origins_dropped": total - whole_window,
+            "note": "rejected — costs the 2008 and 2002 crash regimes for no "
+            "correctness gain, since the encoder carries no price",
+        },
     }
 
 
@@ -236,7 +250,9 @@ def build(frame: pd.DataFrame) -> dict:
         "weekday_rule_error": weekday_rule_error(frame),
         "gaps": {
             "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/25",
-            "policy": "sessions are kept; windows whose span crosses a gap are dropped",
+            "policy": "sessions are kept; origins whose *target* crosses a gap are "
+            "dropped. The encoder block is not checked — decision 5 leaves it "
+            "astro-only, so a missing price cannot corrupt it.",
             "detection": {
                 "year_threshold": GAP_YEAR_THRESHOLD,
                 "run_length": GAP_RUN_LENGTH,
@@ -466,9 +482,23 @@ def render_markdown(spec: dict) -> str:
         "collapses to trading days, so the two sessions either side become neighbours and "
         "the step between them silently spans more than one session's move.",
         "",
-        f"**Policy: {spec['gaps']['policy']}.** Sessions are never dropped — only windows "
-        "are filtered, so an undamaged 2008 session still trains any window that does not "
-        "reach across a gap.",
+        "**Policy: sessions are kept; an origin is dropped only when its *target* crosses "
+        "a gap.**",
+        "",
+        "The encoder block is deliberately **not** checked. Map decision 5 drops every "
+        "price-derived feature, so the past-60 block is astro plus calendar only and "
+        "carries no price at all — and the astro columns are complete and correct on every "
+        "gap date. A missing price cannot corrupt an input that contains no price. What it "
+        "does corrupt is the target, where `log(C_t/C_{t-1})` silently spans two sessions' "
+        "move while being labelled as one.",
+        "",
+        "This distinction is worth real data. Requiring the whole window to be clean would "
+        f"leave {spec['gaps']['cost']['if_encoder_also_clean']['origins_after']} origins "
+        f"instead of {spec['gaps']['cost']['origins_after']}, and — the part that matters — "
+        "would put only **9 of 2008's 38 >4% sessions** inside a retained encoder block. "
+        "Under the target-only rule **all 38** are retained. 2008 is the most extreme "
+        "regime in the sample; a model that has never encoded its planetary configurations "
+        "cannot recognise them recurring.",
         "",
         f"{spec['known_gaps']['note']}",
         "",
@@ -497,6 +527,12 @@ def render_markdown(spec: dict) -> str:
         f"{spec['gaps']['cost']['origins_before']} trainable origins "
         f"({100 * spec['gaps']['cost']['fraction_dropped']:.1f}%).",
         "",
+        "Note this counts only origins whose *target* is damaged. The 29 gap dates "
+        "themselves are absent from the trading-day index entirely — they have no close, "
+        "so they cannot be rows — which means their own astro states are never encoded "
+        "under any policy. Their neighbours are, which is what the crash-regime argument "
+        "actually needs.",
+        "",
         "### Known residue, deliberately unflagged",
         "",
         f"{len(spec['gaps']['unflagged_mismatches'])} isolated XBOM mismatches sit outside "
@@ -521,8 +557,11 @@ def render_markdown(spec: dict) -> str:
         "",
         "A gap is a second kind of fold boundary. The walk-forward arithmetic of "
         "[#10](https://github.com/jenujari/prdict-pov-v1/issues/10) has to treat each "
-        "discontinuity like a purge edge, since a window may not span one — otherwise a "
-        "fold that looks contiguous by date is not contiguous by session.",
+        "discontinuity like a purge edge for **target** spans, since a fold that looks "
+        "contiguous by date is not contiguous by session. Encoder blocks may cross a gap "
+        "freely, so a fold boundary and a gap are not the same constraint — "
+        "`cal.spans_gap(first, last)` takes an explicit range so #10 can apply it to "
+        "whichever span it means.",
         "",
     ]
     return "\n".join(lines)
