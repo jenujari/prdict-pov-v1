@@ -41,11 +41,13 @@ class ColumnSpec:
 
     @property
     def numeric(self) -> list[str]:
-        """Angular plus linear — everything a scaler or PCA might touch.
+        """Angular plus linear — the raw numeric columns of the source file.
 
-        Note that `angular` columns are numeric *now* but are replaced by sin/cos
-        pairs once #7 lands, so anything scaling on this list should re-read the
-        spec afterwards rather than caching the result.
+        This is the *pre-transform* view. #7 has since landed: `angular` columns
+        do not reach a model in this form — `prdict.angles.transform()` replaces
+        them with sin/cos pairs, and drops eight of them outright as antipodal
+        duplicates. A scaler or PCA should take its column list from the
+        transformed frame, not from here.
         """
         return self.angular + self.linear_numeric
 
