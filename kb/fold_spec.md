@@ -1,13 +1,13 @@
 # Walk-forward folds, holdout, and purge arithmetic
 
-Generated 2026-08-03 by `scripts/build_fold_spec.py`. Do not hand-edit.
+Generated 2026-08-08 by `scripts/build_fold_spec.py`. Do not hand-edit.
 Resolves [#10](https://github.com/jenujari/prdict-pov-v1/issues/10).
 
 ## Summary
 
 - **Geometry**: rolling window — every fold trains on exactly `2470` origins (~10 trading years).
-- **Folds**: 5, validating `3367` origins from `2010-05-11` to `2023-12-29`.
-- **Purge**: `10` sessions before every validation block. No embargo.
+- **Folds**: 5, validating `3347` origins from `2010-06-08` to `2023-12-29`.
+- **Purge**: `30` sessions before every validation block. No embargo.
 - **Holdout**: `601` origins, `2024-01-01` → `2026-06-15`.
 - **Total trainable origins**: `6448`.
 
@@ -32,67 +32,67 @@ follows from them and the trading calendar.
 | Training years | 10 | **chosen** — long enough to span the 2000-01 bear, the 2003-07 bull and a crash |
 | Training length | 2470 origins | derived: 10 x 247 |
 | Folds | 5 | **chosen** — see the effective sample size in §6 |
-| Validation per fold | 673 origins | derived from the remainder |
+| Validation per fold | 669 origins | derived from the remainder |
 | CV pool | 5847 origins | trainable origins before the holdout |
 
-`5847 CV origins = 2470 train + 10 purge + 5 x 673 validation + 2 remainder`
+`5847 CV origins = 2470 train + 30 purge + 5 x 669 validation + 2 remainder`
 
 ## 3. Folds
 
 | Fold | Inner train | Inner val | Validation |
 |---|---|---|---|
-| 1 | `2000-03-30` → `2008-09-18` (2091) | `2008-10-07` → `2010-04-27` (370) | `2010-05-11` → `2013-01-18` (673) |
-| 2 | `2002-12-19` → `2011-06-23` (2091) | `2011-07-07` → `2013-01-07` (370) | `2013-01-21` → `2015-10-16` (673) |
-| 3 | `2005-08-25` → `2014-03-14` (2091) | `2014-03-31` → `2015-10-05` (370) | `2015-10-19` → `2018-07-09` (673) |
-| 4 | `2008-05-20` → `2016-12-16` (2091) | `2016-12-30` → `2018-06-26` (370) | `2018-07-10` → `2021-04-05` (673) |
-| 5 | `2011-03-11` → `2019-09-11` (2091) | `2019-09-25` → `2021-03-19` (370) | `2021-04-06` → `2023-12-29` (675) |
+| 1 | `2000-03-30` → `2008-08-18` (2071) | `2008-10-07` → `2010-04-27` (370) | `2010-06-08` → `2013-02-11` (669) |
+| 2 | `2002-12-13` → `2011-05-20` (2071) | `2011-07-01` → `2013-01-01` (370) | `2013-02-12` → `2015-11-04` (669) |
+| 3 | `2005-08-12` → `2014-01-31` (2071) | `2014-03-19` → `2015-09-21` (370) | `2015-11-05` → `2018-07-19` (669) |
+| 4 | `2008-04-30` → `2016-11-01` (2071) | `2016-12-14` → `2018-06-08` (370) | `2018-07-20` → `2021-04-09` (669) |
+| 5 | `2011-02-16` → `2019-07-17` (2071) | `2019-08-30` → `2021-02-24` (370) | `2021-04-12` → `2023-12-29` (671) |
 
-Inner train plus inner val is the whole training block for that fold (`2470` origins, less the inner purge). Every fold's train-to-validation separation is exactly `10` sessions.
+Inner train plus inner val is the whole training block for that fold (`2470` origins, less the inner purge). Every fold's train-to-validation separation is exactly `30` sessions.
 
 ## 4. Purge
 
-**10 sessions, before every validation block.**
+**30 sessions, before every validation block.**
 
-A sample at origin t carries labels for the closes at t+1..t+10, so two origins separated by fewer than 10 sessions share at least one label day (#8). Separation of exactly 10 is therefore the floor at which no training label and no validation label share a return. This spec sits on that floor: each fold's last training label terminates on the close of its first validation origin — the same close, but never the same return.
+A sample at origin t carries labels for the closes at t+1..t+k. The scored target is 10 steps, but the TFT trains on the full 30-step future block (#8 as amended by #36, docs/adr/0002), so the longest training label reaches t+30. Two origins separated by fewer than 30 sessions therefore share at least one training-label return. Separation of exactly 30 is the floor at which no training label — 10-step or 30-step — and no validation scored label share a return. Both models run on this one geometry: for the 10-step XGBoost the extra 20 sessions cost ~20 origins per boundary (~0.3%), which buys a clean shared comparison.
 
-**Known residual.** At 10 sessions the separation is label-level, not row-level. Each training block's 30-session known-future block still reaches 21 sessions into its validation dates, so the scaler and PCA are fitted on rows carrying validation-period dates. Accepted deliberately: every one of those columns is astro or calendar (#3 — every feature is known-future), so the rows hold no information that would not have been available at the training origin. Row-level separation would cost 69 sessions (60 encoder + 9 label) and 59 training origins per fold. Recorded so the choice is visible rather than implied.
+**Known residual.** At 30 sessions the separation is label-level, not row-level: no training label, 10-step or 30-step, shares a scored return with any validation origin. The last training origin's 30-session known-future covariate block still reaches up to the first validation origin's own encoder rows, so the scaler and PCA see rows carrying near-validation dates. Accepted deliberately: every one of those columns is astro or calendar (#3 — every feature is known-future), so the rows hold no information that would not have been available at the training origin. Full row-level separation would additionally cost the 60-session encoder overlap (89 sessions in total) and is not bought, on the same argument PR #34 used to drop the embargo. Recorded so the choice is visible rather than implied.
 
 **No embargo.** An embargo withholds training rows that sit *after* a validation block. Under any forward walk-forward geometry — rolling or expanding — every training block ends before its own validation block begins, so there are no such rows to withhold. An embargo only does work in interleaved k-fold CV, where a test block has training data on both sides. The previous revision of this spec recorded a 69-session embargo; it withheld nothing, and all 69 of fold 1's nominally embargoed origins were present in the training sets of folds 3, 4 and 5.
 
 ## 5. Holdout
 
 - **Range**: `2024-01-01` → `2026-06-15` (601 origins).
-- **Final training block**: `2013-12-04` → `2023-12-15` (2470 origins), purged by `10` sessions from the first holdout origin — the same rolling geometry and the same purge as every fold.
-- **Final inner validation**: `2022-06-15` → `2023-12-15`.
+- **Final training block**: `2013-11-05` → `2023-11-16` (2470 origins), purged by `30` sessions from the first holdout origin — the same rolling geometry and the same purge as every fold.
+- **Final inner validation**: `2022-05-18` → `2023-11-16`.
 - **Policy**: Untouched until all three models are final and compared once. The models scored on it are refit on the final training block above — the same rolling geometry, the same purge — so the holdout comparison is not a different experiment from the folds.
 
 **Known limitation.** The window is a calm rising regime: +9.8% total, 13.9% annualised volatility, worst drawdown -15.8%, worst single day -6.1%. The history it is drawn from contains far harsher regimes (2008: -51.8%, 45.8% vol, -59.4% drawdown; 2020: -38.4% drawdown, -13.9% worst day). Because the always-up baseline scores well on a rising window by construction, this holdout has limited power to separate the astro models from that baseline on drawdown or Sharpe. Chosen deliberately to keep the CV pool large; the write-up must state that the comparison is evidenced on one benign regime only.
 
 ## 6. Reporting
 
-- **Headline**: One concatenated out-of-sample series. The five validation blocks are contiguous and disjoint, so their predictions join into a single 3367-origin series spanning 2010-05-11 to 2023-12-29, scored once on the trading-simulation scorecard (map decision 8). This is the headline number.
+- **Headline**: One concatenated out-of-sample series. The five validation blocks are contiguous and disjoint, so their predictions join into a single 3347-origin series spanning 2010-06-08 to 2023-12-29, scored once on the trading-simulation scorecard (map decision 8). This is the headline number.
 - **Secondary**: Per-fold metrics reported as mean +- std across the five folds, as a consistency check on the headline. A headline carried by one fold is reported as such.
 - **Fold boundaries**: Each fold is a separately fitted model, so the concatenated series crosses four model changes. Positions are flattened at each fold boundary and reopened by the incoming model, and the transaction costs of doing so are charged. Carrying a position across a model change would attribute one model's entry to another model's exit.
-- **Effective sample size**: Consecutive origins share 9 of 10 label days, so the 3367-origin series is worth roughly 336 independent observations. This does not change the purge — the purge is fixed by label overlap at the fold edge, not by dependence within a block — but it governs interpretation: confidence intervals and any significance test must use the effective count, not the origin count.
+- **Effective sample size**: Consecutive origins share 9 of 10 label days, so the 3347-origin series is worth roughly 334 independent observations. This does not change the purge — the purge is fixed by label overlap at the fold edge, not by dependence within a block — but it governs interpretation: confidence intervals and any significance test must use the effective count, not the origin count.
 
 ### Model selection
 
-The outer validation origins carry the reported out-of-sample trading scorecard. If early stopping or hyperparameter choice also read them, the reported number becomes a best-of-N selected on the very days it is reported for. Overlapping labels make this acute: 9 of every 10 label days are shared, so a fold's validation block is worth roughly 67 independent observations, and best-of-N on that few will manufacture an edge out of noise.
+The outer validation origins carry the reported out-of-sample trading scorecard. If early stopping or hyperparameter choice also read them, the reported number becomes a best-of-N selected on the very days it is reported for. Overlapping labels make this acute: 9 of every 10 label days are shared, so a fold's validation block is worth roughly 66 independent observations, and best-of-N on that few will manufacture an edge out of noise.
 
-**Rule.** The last 15% of each training block is the inner validation set. The inner training block is everything before it, less the same 10-session purge. Early stopping and hyperparameter selection see the inner validation set and nothing else.
+**Rule.** The last 15% of each training block is the inner validation set. The inner training block is everything before it, less the same 30-session purge. Early stopping and hyperparameter selection see the inner validation set and nothing else.
 
 **Budget.** The hyperparameter search space and the number of configurations tried are fixed in writing before any model runs, and are not expanded after seeing inner validation results.
 
 ## 7. Gap audit (#25)
 
 - Discontinuities on the index: **28** — 2008's 21 missing sessions (#25), treated as ordinary trading holidays.
-- Validation boundaries within 69 sessions of one: **none**
-- Training boundaries within 69 sessions of one: **1**
-- No validation block contains or comes within 69 sessions of a discontinuity, so no scored origin is affected and no fold boundary needs to move. #25's policy stands: nothing is filtered.
+- Validation boundaries within 89 sessions of one: **none**
+- Training boundaries within 89 sessions of one: **2**
+- No validation block contains or comes within 89 sessions of a discontinuity, so no scored origin is affected and no fold boundary needs to move. #25's policy stands: nothing is filtered.
 
 Only training-block edges land near the 2008 stretch, and only because the rolling length places them there — no boundary was chosen to avoid or hit a gap. Fold 4's training block opens inside the defective run, so it carries a partial 2008. Under #25 that is not a defect to correct: the missing sessions are ordinary trading holidays, and a training block that starts mid-year is no more unusual than one that starts mid-quarter.
 
-Under the rolling geometry fold 5 trains from 2011-03-11 and therefore never sees 2008 or 2000-01; fold 4 picks 2008 up only from 2008-05-20. Combined with a holdout drawn from a calm regime, the later folds and the final comparison are trained and scored on progressively calmer data. This is the price of holding the training size constant, and it is recorded rather than hidden.
+Under the rolling geometry fold 5 trains from 2011-02-16 and therefore never sees 2008 or 2000-01; fold 4 picks 2008 up only from 2008-04-30. Combined with a holdout drawn from a calm regime, the later folds and the final comparison are trained and scored on progressively calmer data. This is the price of holding the training size constant, and it is recorded rather than hidden.
 
 ## 8. What is fitted where
 
