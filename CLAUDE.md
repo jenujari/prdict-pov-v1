@@ -8,30 +8,28 @@ Python project managed with `uv`. Python version is pinned to 3.12 (see `.python
 
 ## Runtime — read this first
 
-**The pipeline runs in a podman container, not on the host.** The host is Chimera Linux (musl libc) and cannot install `torch` or `xgboost` at all — no musl wheels exist. Full detail in `kb/runtime.md`.
+**The whole pipeline runs natively via `uv` on the host.** The host is Arch Linux (glibc), so `torch`, `xgboost`, and `pytorch-forecasting` install directly — no container. Full detail in `kb/runtime.md`. (This project used to require a podman container to dodge musl; that host is gone, and so is `container/`.)
 
 ```sh
-./container/build.sh                              # build the image (once)
-./container/run.sh python container/verify.py     # smoke test
-./container/run.sh python scripts/<script>.py     # run anything
+uv sync                                    # install everything (once)
+uv run python scripts/verify_env.py        # smoke test
+uv run python scripts/<script>.py          # run anything
 ```
 
-- Inside the container, call `python` directly. **Never `uv run`** — the working directory is the mounted repo, so it would reach for `/work/.venv`, which is the host's musl venv and will not execute.
-- ML dependencies live in `container/requirements.in`, locked to `container/requirements.txt` by `./container/lock.sh`. **Do not add them to `pyproject.toml`** — they cannot resolve on musl.
+- `torch` is CPU-only by construction — it resolves from the PyTorch CPU index declared in `pyproject.toml` (`[tool.uv.sources]` + `[[tool.uv.index]]`). This box has **no CUDA**; size the TFT accordingly.
+- ML dependencies live in `pyproject.toml` like everything else. Add one with `uv add <package>`; re-lock with `uv lock`.
 
 ## Host environment
 
-The host `uv` environment is for lightweight tooling only.
-
 - Dependencies and the virtual environment are managed by `uv` — do not use `pip` directly.
 - Install/sync dependencies: `uv sync`
-- Run a command in the host environment: `uv run <command>`
+- Run a command: `uv run <command>`
 - Add a dependency: `uv add <package>` (use `--dev` for dev-only dependencies)
 - Regenerate the lockfile after editing dependencies: `uv lock`
 
 ## Conventions
 
-- `pyproject.toml` is the source of truth for **host** dependencies; `uv.lock` is committed and should be kept in sync (run `uv lock` after any dependency change). `container/requirements.txt` is the source of truth for the **pipeline** runtime.
+- `pyproject.toml` is the single source of truth for dependencies; `uv.lock` is committed and kept in sync (run `uv lock` after any dependency change).
 - Target Python 3.12 syntax and standard library features.
 
 ## Planning

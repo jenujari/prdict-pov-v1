@@ -1,8 +1,26 @@
 [project]
 name = "prdict-pov-v1"
 version = "0.1.0"
-description = "Add your description here"
+description = "Astro-feature pipeline to a three-model Nifty-50 return comparison"
 requires-python = ">=3.12"
 dependencies = [
     "pandas>=3.0.5",
+    "numpy>=2.5.1",
+    "scipy>=1.18.0",
+    "scikit-learn>=1.9.0",
+    "pyarrow>=25.0.0",
+    "matplotlib>=3.11.1",
+    "xgboost>=3.3.0",
+    "torch>=2.13.0",
+    "pytorch-forecasting>=1.8,<1.9",
 ]
+
+# CPU-only box (map #2 standing preferences): pull torch from the PyTorch CPU
+# index so the default CUDA stack (~2 GB, pointless here) never resolves.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

@@ -1,83 +1,60 @@
 # Runtime
 
-Resolves [#16](https://github.com/jenujari/prdict-pov-v1/issues/16).
+Originally resolved [#16](https://github.com/jenujari/prdict-pov-v1/issues/16) with a podman container. **That is history now** — the host moved from Chimera Linux (musl) to Arch Linux (glibc), where the whole ML stack installs natively. The container is deleted; this note records the native setup and why the container existed.
 
-**Everything in this project runs inside a podman container.** The host cannot install the ML stack.
+**Everything runs natively via `uv` on the host.**
 
 ```sh
-./container/build.sh                              # build the image (once)
-./container/run.sh python container/verify.py     # smoke test
-./container/run.sh python scripts/build_column_spec.py
-./container/run.sh                                # interactive shell
+uv sync                                 # install everything (once)
+uv run python scripts/verify_env.py     # smoke test
+uv run python scripts/build_column_spec.py
 ```
 
-## Why
+## Why there is no longer a container
 
-The host is **Chimera Linux**, which uses **musl libc**. `uv` correctly installs a musl CPython, and most of the scientific-Python wheel ecosystem does not publish musl builds.
+The blocker #16 recorded was **musl libc**: `uv` installed a musl CPython, and neither `torch` nor `xgboost` publishes musl wheels, so the model half of the pipeline could not run on the host at all. The workaround was a glibc podman container that owned the entire runtime.
 
-| Package | On the musl host | In the container |
-|---|---|---|
-| `pandas`, `numpy`, `scipy`, `scikit-learn` | Installs | 3.0.5 / 2.5.1 / 1.18.0 / 1.9.0 |
-| `xgboost` | **No musl wheel.** `uv` backtracks to 2.0.3, which then needs `cmake`. | **3.3.0** |
-| `torch` | **No musl wheel at any version.** Wheels exist only for `manylinux_2_28_{x86_64,aarch64}`, `macosx_14_0_arm64`, `win_amd64`. | **2.13.0+cpu** |
-| `pytorch-forecasting` | Unreachable — needs torch | 1.8.0 |
+On **Arch Linux (glibc x86_64)** that constraint is gone — every wheel below resolves and installs directly:
 
-The XGBoost gap is a packaging accident and is separately solvable — the [#6 research](https://github.com/jenujari/prdict-pov-v1/issues/6) got 3.3.0 to build from source on musl in about 2.5 minutes. The PyTorch gap is not: building it on musl is unsupported upstream and a multi-hour toolchain exercise.
-
-Rather than run a split environment, **the container is the single runtime for the whole pipeline** — feature engineering included, even though `pandas` and `scikit-learn` would run natively. One environment means one lockfile and one set of library versions, so a result cannot depend on where it was run. Verified: `scripts/build_column_spec.py` produces byte-identical output on the host and in the container.
-
-The host `uv` environment is retained only for lightweight tooling. Do not add model dependencies to `pyproject.toml` — they cannot resolve on musl.
-
-## Layout
-
-| Path | Purpose |
+| Package | Version |
 |---|---|
-| `container/Containerfile` | Image definition. Base `ghcr.io/astral-sh/uv:python3.12-bookworm-slim` (glibc 2.36). |
-| `container/requirements.in` | Direct dependencies, hand-edited. |
-| `container/requirements.txt` | Fully pinned lock — 47 packages. Generated, do not hand-edit. |
-| `container/lock.sh` | Regenerates the lock. Run after editing `requirements.in`. |
-| `container/build.sh` | Builds the image. |
-| `container/run.sh` | Runs a command in the container with the repo mounted at `/work`. |
-| `container/verify.py` | Smoke test — imports everything, exercises torch and xgboost, checks the mount is writable. |
+| `pandas` / `numpy` / `scipy` / `scikit-learn` | 3.0.5 / 2.5.1 / 1.18.0 / 1.9.0 |
+| `pyarrow` / `matplotlib` | 25.0.0 / 3.11.1 |
+| `xgboost` | 3.3.0 |
+| `torch` | 2.13.0 (CPU) |
+| `pytorch-forecasting` | 1.8.0 |
 
-Image is ~3.95 GB.
+These are the versions the container proved out (#5, #6); the floors in `pyproject.toml` track them.
 
-## Reproducibility
+## CPU-only torch
 
-`container/requirements.txt` is generated on the **musl host** by cross-resolving for glibc:
+The box has **no GPU** (map #2 standing preferences). The default PyPI `torch` wheel drags in the full CUDA stack (~2 GB, useless here), so `pyproject.toml` pins torch to the PyTorch CPU index:
 
-```sh
-uv pip compile container/requirements.in \
-    --python-platform x86_64-manylinux_2_28 \
-    --python-version 3.12 \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    --index-strategy unsafe-best-match \
-    -o container/requirements.txt
+```toml
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 ```
 
-`--python-platform` is what makes this work: it resolves for the target platform rather than the host, so torch and xgboost resolve on a machine that cannot install either. Wrapped in `container/lock.sh`.
+`explicit = true` means only packages mapped to it in `[tool.uv.sources]` (i.e. `torch`) draw from that index; everything else stays on PyPI. Verify with `torch.version.cuda is None` in `scripts/verify_env.py`.
 
-The `download.pytorch.org/whl/cpu` index pins `torch==2.13.0+cpu`. Without it, pip resolves the default wheel and drags in the full CUDA stack — pointless on a box with no GPU, and roughly 2 GB of it.
+## Dependency manifest
 
-This project therefore has **two** dependency manifests. `pyproject.toml` + `uv.lock` describe the host tooling environment; `container/requirements.txt` describes the runtime that actually executes the pipeline. The second is the one that matters for results.
+There is now **one** manifest: `pyproject.toml` + `uv.lock`. (Under the container there were two — a host `pyproject.toml` for tooling and a `container/requirements.txt` for the runtime. That split is gone.) Add a dependency with `uv add`, re-lock with `uv lock`.
 
-## Gotchas
+## Smoke test
 
-**`--network=host` was required, and no longer is.** Podman on this machine used to inherit the host's tailscale resolver (`nameserver 100.100.100.100`) into a network namespace that could not reach it, so the base-image pull failed with `lookup ghcr.io on 100.100.100.100:53: no such host` and both scripts passed `--network=host` to work around it. The host DNS configuration was fixed on 2026-08-03 — containers now get `8.8.8.8` / `1.1.1.1` in their own namespace. Verified: DNS, an HTTPS fetch to PyPI, and a `podman build` that installs from PyPI all succeed with no network flag.
+`scripts/verify_env.py` imports the stack and *exercises* the two packages the musl host could not run:
 
-The flag has been dropped from `build.sh` and `run.sh`, so the container runs in its own network namespace again. If a pull or a build ever fails on DNS, check the host's resolver before reaching for `--network=host`.
+- `torch` — a real matmul on a 64×8 tensor, and asserts `torch.version.cuda is None`.
+- `xgboost` — `multi_strategy="multi_output_tree"` with `tree_method="hist"`, trained and predicting a 10-wide output (the exact combination #6 needs and map decision 2 rides on).
 
-**Never call `uv run` inside the container.** The working directory is the mounted repo, so `uv run` would try to sync against `pyproject.toml` and either fight the image's pinned environment or reach for `/work/.venv` — which is the host's **musl** venv and will not execute. `UV_PROJECT_ENVIRONMENT=/opt/venv` is set in the image as a guard, but the rule is simply: call `python` directly. It resolves to `/opt/venv/bin/python` via `PATH`.
+`pytorch-forecasting` 1.8.0 is the version the [#5 research](https://github.com/jenujari/prdict-pov-v1/issues/5) recommended.
 
-**File ownership is already correct.** Rootless podman maps the container's root to the invoking host user, so files written to `/work` come back owned by that user. No `--userns=keep-id` needed. Verified.
+## Note on `exchange_calendars`
 
-**CPU only.** `torch.version.cuda` is `None` by construction. Eight threads available.
-
-## Wired for the models
-
-Both blocked models were exercised, not merely imported — see `container/verify.py`:
-
-- `torch` — a real matmul on a 64x8 tensor.
-- `xgboost` — `multi_strategy="multi_output_tree"` with `tree_method="hist"`, trained and predicting a 10-wide output. This is the exact combination [#6](https://github.com/jenujari/prdict-pov-v1/issues/6) needed and the map's decision 2 rides on.
-
-`pytorch-forecasting` 1.8.0 is the version the [#5 research](https://github.com/jenujari/prdict-pov-v1/issues/5) recommended pinning to.
+The forward trading-day calendar (#4) was generated once with `exchange_calendars`; its output is frozen and checked into `kb/trading_calendar.json`. It is a one-off generator, **not** a pipeline dependency, so it is deliberately absent from `pyproject.toml`.

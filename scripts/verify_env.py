@@ -1,9 +1,9 @@
-"""Smoke-test the container runtime.
+"""Smoke-test the native runtime.
 
-Confirms the container actually provides what the musl host cannot, and that the
-mounted repo is readable and writable from inside.
+Confirms the ML stack imports and that torch and xgboost actually run, not just
+import. On the glibc host this runs directly:
 
-    ./container/run.sh python container/verify.py
+    uv run python scripts/verify_env.py
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def main() -> int:
 
     print(f"\ntorch cuda={torch.version.cuda} threads={torch.get_num_threads()}")
 
-    # The two things the host genuinely cannot do — exercise them, do not just import.
+    # Exercise, do not merely import.
     x = torch.randn(64, 8)
     print(f"torch matmul ok: {(x @ x.T).shape}")
 
@@ -63,15 +63,8 @@ def main() -> int:
     shape = booster.predict(xgb.DMatrix(np.random.randn(4, 5))).shape
     print(f"xgboost multi_output_tree ok: predict shape {shape}")
 
-    # The bind mount must be writable, or nothing downstream can emit artifacts.
-    repo = Path("/work")
-    print(f"\n/work mounted: {repo.is_dir()}  nft50.csv: {(repo / 'nft50.csv').exists()}")
-    probe = repo / ".container_write_probe"
-    try:
-        probe.write_text("ok")
-        print(f"/work writable: True  (uid={probe.stat().st_uid})")
-    finally:
-        probe.unlink(missing_ok=True)
+    repo = Path(__file__).resolve().parent.parent
+    print(f"\nrepo: {repo}  nft50.csv: {(repo / 'nft50.csv').exists()}")
 
     print("\nAll checks passed.")
     return 0

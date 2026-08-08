@@ -1,5 +1,15 @@
 # Ticket audit — #2 through #10
 
+> [!WARNING]
+> **Superseded in part, 2026-08-08.** This audit assumed the goal was a **120-day** input
+> tensor and marked the repo's 60-session window as a divergence (D1) plus a wasteful 30-session
+> future block (D2). Both are **wrong**: the goal is **60 past + 30 future = 90 sessions** (the
+> "120" was a miscount, 60 + 30 = 90), and the 30 future sessions are deliberate input. **D1, D2,
+> and their eight-step fix are void** — the window/calendar/target/fold specs are correct as-is.
+> **D3 is done** (PR #34 merged). Still live: **D4** (`elapsed` has no home in the encoding
+> contract) and **C2/C3/C4** (wiring `folds.py` ↔ `encoding.py`), now tracked as the
+> `audit-cleanup` ticket and folded into #11. See `docs/adr/0001` and `docs/adr/0002`.
+
 Audited 2026-08-04 against the stated core goal:
 
 > train a model on a **120-day input feature tensor** to predict **10-day future log returns**
