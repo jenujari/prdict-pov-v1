@@ -20,7 +20,13 @@ from prdict.trading_calendar import CSV_PATH, TradingCalendar, load_calendar, re
 
 @dataclass(frozen=True)
 class Targets:
-    """The label matrix and the covariate that says how much time each step spans."""
+    """The label matrix and the covariate that says how much time each step spans.
+
+    `horizon` is the number of steps this array holds. The scored target — the
+    one both models are compared on — is the 10-step build. The TFT also trains
+    on a 30-step build (`steps=cal.future`), because its decoder spans the whole
+    future block; only its first 10 steps are ever scored (`docs/adr/0002`).
+    """
 
     origins: pd.DatetimeIndex
     y: np.ndarray
@@ -81,27 +87,35 @@ def elapsed_days(cal: TradingCalendar) -> pd.Series:
     return pd.Series(np.asarray(days, dtype=np.int16), index=sessions[1:])
 
 
-def build(cal: TradingCalendar | None = None, closes: pd.Series | None = None) -> Targets:
-    """The (n, 10) label matrix over every trainable origin, plus its elapsed covariate.
+def build(
+    cal: TradingCalendar | None = None,
+    closes: pd.Series | None = None,
+    steps: int | None = None,
+) -> Targets:
+    """The (n, steps) label matrix over every trainable origin, plus its elapsed covariate.
 
     An origin is the last session whose close the model may see; step `k` of its
     label is the move into the k-th session after it, so `y[:, 0]` is
     `log(C_{t+1} / C_t)`.
+
+    `steps` defaults to `cal.horizon` (the scored 10-step target). Pass
+    `cal.future` for the TFT's 30-step training target — a longer label over a
+    smaller origin set (the tail loses origins lacking a full 30-step label).
     """
     cal = load_calendar() if cal is None else cal
-    horizon = cal.horizon
+    steps = cal.horizon if steps is None else steps
     returns = step_returns(cal, closes)
     elapsed = elapsed_days(cal)
 
-    origins = cal.trainable_origins()
-    # Every origin's label spans the `horizon` sessions strictly after it, so the
+    origins = cal.trainable_origins(reach=steps)
+    # Every origin's label spans the `steps` sessions strictly after it, so the
     # rows are contiguous slices of the return series starting one step along.
     first = returns.index.get_indexer([origins[0]])[0] + 1
     if first < 0:
         raise ValueError(f"origin {origins[0].date()} is not on the return index")
 
-    y = np.lib.stride_tricks.sliding_window_view(returns.to_numpy(float), horizon)
-    e = np.lib.stride_tricks.sliding_window_view(elapsed.to_numpy(), horizon)
+    y = np.lib.stride_tricks.sliding_window_view(returns.to_numpy(float), steps)
+    e = np.lib.stride_tricks.sliding_window_view(elapsed.to_numpy(), steps)
     y = y[first : first + len(origins)]
     e = e[first : first + len(origins)]
 
@@ -110,7 +124,7 @@ def build(cal: TradingCalendar | None = None, closes: pd.Series | None = None) -
     if len(y) != len(origins):
         raise ValueError(f"{len(origins)} origins but {len(y)} label rows")
 
-    return Targets(origins=origins, y=y, elapsed=e, horizon=horizon)
+    return Targets(origins=origins, y=y, elapsed=e, horizon=steps)
 
 
 def forward_elapsed(cal: TradingCalendar) -> pd.DataFrame:
@@ -164,6 +178,21 @@ def main() -> None:
     tail = np.abs(t.y) > 0.05
     print(f"\ntails    : |r|>5% on {100 * tail.mean():.3f}% of cells, "
           f"{100 * tail.any(1).mean():.2f}% of rows — kept (see kb/target_spec.md)")
+
+    # TFT training target: the decoder spans the full future block, so it trains
+    # on a 30-step label over a smaller origin set. Only its first 10 steps are
+    # ever scored — verify they coincide with the scored target (docs/adr/0002).
+    tft = build(cal, steps=cal.future)
+    dropped = len(t.origins) - len(tft.origins)
+    print(f"\ntft target: {tft.y.shape}  steps={cal.future}  "
+          f"{tft.origins[0].date()} → {tft.origins[-1].date()}")
+    print(f"  origins  : {len(tft.origins)} ({dropped} fewer than the 10-step set — "
+          f"the tail lacking a full {cal.future}-step label)")
+    assert np.allclose(tft.y[: len(tft.origins), : cal.horizon],
+                       t.y[: len(tft.origins)]), "first-10 of 30-step target must match scored"
+    assert np.allclose(tft.elapsed[: len(tft.origins), : cal.horizon],
+                       t.elapsed[: len(tft.origins)]), "first-10 elapsed must match"
+    print(f"  first {cal.horizon} steps coincide with the scored target: verified")
 
 
 if __name__ == "__main__":

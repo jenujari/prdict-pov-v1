@@ -8,8 +8,8 @@ choices — rolling geometry, ten training years, five folds. Nothing is a
 hand-picked date. The build fails if a derived boundary stops satisfying the
 separation the purge is supposed to buy.
 
-Run inside container:
-    ./container/run.sh python scripts/build_fold_spec.py
+Run:
+    uv run python scripts/build_fold_spec.py
 """
 
 from __future__ import annotations
@@ -32,7 +32,10 @@ N_FOLDS = 5
 TRAIN_YEARS = 10
 
 # Purge only. There is no embargo: see EMBARGO_OMITTED.
-PURGE_SESSIONS = 10
+# 30, not 10: the TFT trains on the full 30-step future block (docs/adr/0002,
+# #36), so the longest training label reaches 30 sessions past its origin. Both
+# models share this one geometry so the comparison runs on identical folds.
+PURGE_SESSIONS = 30
 
 # The holdout opens on the first session of the calendar year after the last
 # validation fold. It is a boundary, not a tuned length.
@@ -259,23 +262,28 @@ def build() -> dict:
         "purge": {
             "sessions": PURGE_SESSIONS,
             "derivation": (
-                "A sample at origin t carries labels for the closes at t+1..t+10, so two "
-                "origins separated by fewer than 10 sessions share at least one label day "
-                "(#8). Separation of exactly 10 is therefore the floor at which no "
-                "training label and no validation label share a return. This spec sits on "
-                "that floor: each fold's last training label terminates on the close of "
-                "its first validation origin — the same close, but never the same return."
+                "A sample at origin t carries labels for the closes at t+1..t+k. The "
+                "scored target is 10 steps, but the TFT trains on the full 30-step future "
+                "block (#8 as amended by #36, docs/adr/0002), so the longest training "
+                "label reaches t+30. Two origins separated by fewer than 30 sessions "
+                "therefore share at least one training-label return. Separation of exactly "
+                "30 is the floor at which no training label — 10-step or 30-step — and no "
+                "validation scored label share a return. Both models run on this one "
+                "geometry: for the 10-step XGBoost the extra 20 sessions cost ~20 origins "
+                "per boundary (~0.3%), which buys a clean shared comparison."
             ),
             "known_residual": (
-                "At 10 sessions the separation is label-level, not row-level. Each "
-                "training block's 30-session known-future block still reaches 21 sessions "
-                "into its validation dates, so the scaler and PCA are fitted on rows "
-                "carrying validation-period dates. Accepted deliberately: every one of "
-                "those columns is astro or calendar (#3 — every feature is known-future), "
-                "so the rows hold no information that would not have been available at "
-                "the training origin. Row-level separation would cost 69 sessions "
-                "(60 encoder + 9 label) and 59 training origins per fold. Recorded so the "
-                "choice is visible rather than implied."
+                "At 30 sessions the separation is label-level, not row-level: no training "
+                "label, 10-step or 30-step, shares a scored return with any validation "
+                "origin. The last training origin's 30-session known-future covariate "
+                "block still reaches up to the first validation origin's own encoder rows, "
+                "so the scaler and PCA see rows carrying near-validation dates. Accepted "
+                "deliberately: every one of those columns is astro or calendar (#3 — every "
+                "feature is known-future), so the rows hold no information that would not "
+                "have been available at the training origin. Full row-level separation "
+                "would additionally cost the 60-session encoder overlap (89 sessions in "
+                "total) and is not bought, on the same argument PR #34 used to drop the "
+                "embargo. Recorded so the choice is visible rather than implied."
             ),
         },
         "embargo": {"sessions": 0, "why_omitted": EMBARGO_OMITTED},
@@ -314,8 +322,8 @@ def build() -> dict:
             "rule": (
                 f"The last {int(INNER_VAL_FRACTION * 100)}% of each training block is the "
                 "inner validation set. The inner training block is everything before it, "
-                "less the same 10-session purge. Early stopping and hyperparameter "
-                "selection see the inner validation set and nothing else."
+                f"less the same {PURGE_SESSIONS}-session purge. Early stopping and "
+                "hyperparameter selection see the inner validation set and nothing else."
             ),
             "why": (
                 "The outer validation origins carry the reported out-of-sample trading "
@@ -379,8 +387,11 @@ def gap_audit(cal: TradingCalendar, folds: list[dict]) -> dict:
         for f in folds
         for key in ("train_start", "train_end", "val_start", "val_end")
     }
+    # Full window reach between two origins: 60-session encoder back plus the
+    # 30-session future block forward, so any row is shared within 89 sessions.
+    reach = cal.past - 1 + cal.future
     near = {
-        name: [str(cal.sessions[p].date()) for p in disc if abs(p - pos) <= 69]
+        name: [str(cal.sessions[p].date()) for p in disc if abs(p - pos) <= reach]
         for name, pos in boundaries.items()
     }
     near = {k: v for k, v in near.items() if v}
@@ -394,7 +405,7 @@ def gap_audit(cal: TradingCalendar, folds: list[dict]) -> dict:
         "n_validation_boundaries_near_a_gap": len(scoring_near),
         "n_training_boundaries_near_a_gap": len(near) - len(scoring_near),
         "verdict": (
-            "No validation block contains or comes within 69 sessions of a discontinuity, "
+            "No validation block contains or comes within 89 sessions of a discontinuity, "
             "so no scored origin is affected and no fold boundary needs to move. #25's "
             "policy stands: nothing is filtered."
             if clean and not scoring_near
@@ -439,8 +450,10 @@ def validate(
         assert f["train_val_separation_sessions"] >= purge, (
             f"fold {f['fold']}: separation {f['train_val_separation_sessions']} < purge {purge}"
         )
-        # No training origin's label window may reach into its own validation block.
-        last_train_label = cal.position(pd.Timestamp(f["train_end"])) + cal.horizon
+        # No training origin's label window may reach into its own validation
+        # block. The purge is sized for the longest training label — the TFT's
+        # 30-step future block — so check against that, not just the scored 10.
+        last_train_label = cal.position(pd.Timestamp(f["train_end"])) + cal.future
         first_val_label = cal.position(pd.Timestamp(f["val_start"])) + 1
         assert last_train_label < first_val_label, (
             f"fold {f['fold']}: training labels reach session {last_train_label}, "
@@ -470,7 +483,7 @@ def validate(
     final_end = pd.Timestamp(spec["holdout"]["final_train_end"])
     final_sep = cal.position(holdout[0]) - cal.position(final_end)
     assert final_sep >= purge, f"final train/holdout separation {final_sep} < purge {purge}"
-    assert cal.position(final_end) + cal.horizon < cal.position(holdout[0]) + 1, (
+    assert cal.position(final_end) + cal.future < cal.position(holdout[0]) + 1, (
         "final training labels reach into the holdout"
     )
 
@@ -602,9 +615,9 @@ def render_markdown(spec: dict) -> str:
         "## 7. Gap audit (#25)",
         "",
         f"- Discontinuities on the index: **{ga['n_discontinuities']}** — {ga['source']}",
-        f"- Validation boundaries within 69 sessions of one: "
+        f"- Validation boundaries within 89 sessions of one: "
         f"**{ga['n_validation_boundaries_near_a_gap'] or 'none'}**",
-        f"- Training boundaries within 69 sessions of one: "
+        f"- Training boundaries within 89 sessions of one: "
         f"**{ga['n_training_boundaries_near_a_gap'] or 'none'}**",
         f"- {ga['verdict']}",
         "",

@@ -85,14 +85,22 @@ class TradingCalendar:
         ahead = self.future if forward_steps is None else forward_steps
         return self.sessions[self.past - 1 : len(self.sessions) - ahead]
 
-    def trainable_origins(self) -> pd.DatetimeIndex:
-        """Origins whose whole target horizon has an observed close.
+    def trainable_origins(self, reach: int | None = None) -> pd.DatetimeIndex:
+        """Origins whose whole target span has an observed close.
 
-        The forward block has no target, so training stops `horizon` sessions
+        `reach` is how many sessions of observed close the target needs after
+        the origin. It defaults to `horizon` — the scored 10-step target. Pass a
+        larger reach for a longer training target: the TFT decodes the full
+        `future` block, so its 30-step training label uses `reach=future` and a
+        slightly smaller origin set (the tail loses the origins that lack a full
+        30-step label). See `docs/adr/0002`.
+
+        The forward block has no target, so training stops `reach` sessions
         before the last observed close.
         """
-        return self.origins(forward_steps=self.horizon).intersection(
-            self.history[: self.n_history - self.horizon]
+        reach = self.horizon if reach is None else reach
+        return self.origins(forward_steps=reach).intersection(
+            self.history[: self.n_history - reach]
         )
 
     def forward_origins(self) -> pd.DatetimeIndex:

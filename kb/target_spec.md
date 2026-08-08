@@ -36,6 +36,20 @@ Both dates are computed, not asserted — `cal.trainable_origins()` in `prdict/t
 
 Nothing is filtered on the 2008 gaps: [#25](https://github.com/jenujari/prdict-pov-v1/issues/25) settles that the missing sessions are ordinary trading holidays, so all 6448 origins are trainable and **147 (2.3%)** carry one step spanning roughly one extra session's move.
 
+## TFT training target — 30-step extension
+
+Amended by [#36](https://github.com/jenujari/prdict-pov-v1/issues/36), from [`docs/adr/0002`](../docs/adr/0002-tft-decodes-30-scores-10.md). The **scored** target above is unchanged: `(n, 10)`, and it is the only quantity any model is compared on.
+
+The TFT's decoder spans the whole 30-session future block (`max_prediction_length = future = 30`), so for *training* it needs a 30-step label. `build(cal, steps=cal.future)` produces it — the same definition, run out to 30 steps:
+
+| | 10-step scored | 30-step TFT training |
+|-|-|-|
+| Shape | `(6448, 10)` | `(6428, 30)` |
+| Origins | `2000-03-29` → `2026-06-15` | `2000-03-29` → `2026-05-15` |
+| Reason for the tail | needs `C_{i+10}` | needs `C_{i+30}` |
+
+The 30-step build drops **20** origins at the tail — the ones without a full 30-step label. They sit in the final holdout region, which is *scored* (needs only the 10-step actual), not *trained*, so no fold's training range actually loses an origin; the real fold training blocks end years earlier. The self-check asserts the first 10 steps of the 30-step target coincide cell-for-cell with the scored target, so the two views cannot drift. `elapsed` extends the same way (`elapsed_1..30`).
+
 ## Source ordering
 
 `nft50.csv` is stored **newest-first**. `restrict()` now sorts ascending, so no downstream stage has to know — but the failure mode is worth recording, because it is silent: reading the close series in file order negates every return and still produces a plausible-looking label matrix with the right shape, the right scale, and no NaNs. Nothing but a sign check catches it.
@@ -102,14 +116,16 @@ Consecutive origins share **9 of 10** label days. Samples are therefore **not** 
 
 | Separation between two origins | What they share |
 |---|---|
-| `< 10` sessions | At least one label day → **direct label leakage** |
+| `< 10` sessions | At least one **scored** label day → direct label leakage |
+| `< 30` sessions | At least one **TFT training** label day (30-step target) |
 | `< 60` sessions | At least one encoder row |
 | `< 69` sessions | Any row at all |
 
-- **Purge / embargo ≥ 10 sessions** is the hard floor: below it, a training origin's label literally contains a test origin's label days.
-- **69 sessions** buys complete row-level separation, at a cost of ~69 origins per fold boundary out of 6448 (~1.1% per boundary).
+- **Purge ≥ 10 sessions** is the floor for the 10-step scored target; below it a training origin's label literally contains a test origin's label days.
+- **Purge = 30 sessions** is the floor once the TFT trains on the 30-step label (`docs/adr/0002`) — a 30-step training label reaches 30 sessions forward, so anything closer shares a scored return. Since the comparison runs on one fold geometry, **#10 adopts purge 30 for both models** (amended by [#36](https://github.com/jenujari/prdict-pov-v1/issues/36)); the extra cost to the 10-step XGBoost is ~20 origins per boundary (~0.3%).
+- **89 sessions** (60 encoder + 29 label) would additionally buy complete *row-level* separation, but PR #34 settled that the encoder overlap is harmless — every feature is known-future (#3) — so the fold spec sits on the label floor, not the row floor.
 
-The choice between the two is #10's, but 10 is a floor, not a default. Note that the encoder overlap is a weaker form of leakage than the label overlap — shared *inputs* between folds are ordinary in time-series CV; shared *labels* are not.
+Note the encoder overlap is a weaker form of leakage than the label overlap — shared *inputs* between folds are ordinary in time-series CV; shared *labels* are not.
 
 ## Reading the target
 
