@@ -1,0 +1,1177 @@
+{
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/12",
+  "parameters": {
+    "stage1": {
+      "metric": "spearman",
+      "threshold": 0.95,
+      "survivor_rule": "higher mean-horizon mutual information",
+      "atomic_units": "sin/cos pairs (#7)",
+      "columns_considered": 199,
+      "note": "categoricals/booleans bypass the prune; #15 decides those per model"
+    },
+    "stage2": {
+      "metrics": [
+        "mutual_information",
+        "spearman"
+      ],
+      "horizon_reduction": "mean over the 10 step-return horizons",
+      "null": {
+        "kind": "target permutation",
+        "permutations": 12,
+        "quantile": 0.95,
+        "rule": "a feature is selected only if its mean MI exceeds the null band"
+      }
+    },
+    "fold_stability": {
+      "rule": "majority-frequency union",
+      "threshold_folds": 3,
+      "n_folds": 5,
+      "in_fold": "selection is fit in-fold for scoring; set 1 is the reported union"
+    }
+  },
+  "folds": [
+    {
+      "fold": 1,
+      "train_origins": 2470,
+      "survivors": 150,
+      "null_mi_p95": 0.025394,
+      "selected": 15,
+      "max_mi": 0.073191,
+      "selected_cols": [
+        "jupiter_rahu_dist",
+        "jupiter_uchcha_bala",
+        "mars_latitude",
+        "mars_saturn_dist",
+        "mars_saturn_sep_cos",
+        "mars_saturn_sep_sin",
+        "saturn_ketu_dist",
+        "saturn_latitude",
+        "saturn_rahu_dist",
+        "saturn_rahu_sep_cos",
+        "saturn_rahu_sep_sin",
+        "saturn_speed_lat",
+        "sun_ketu_dist",
+        "sun_rahu_sep_cos",
+        "venus_speed_long"
+      ]
+    },
+    {
+      "fold": 2,
+      "train_origins": 2470,
+      "survivors": 153,
+      "null_mi_p95": 0.02644,
+      "selected": 18,
+      "max_mi": 0.097763,
+      "selected_cols": [
+        "jupiter_ketu_dist",
+        "jupiter_latitude",
+        "jupiter_longitude_cos",
+        "jupiter_longitude_sin",
+        "jupiter_rahu_dist",
+        "jupiter_rahu_sep_cos",
+        "jupiter_rahu_sep_sin",
+        "jupiter_saturn_sep_cos",
+        "mars_mercury_sep_sin",
+        "mars_saturn_sep_sin",
+        "rahu_longitude_cos",
+        "rahu_longitude_sin",
+        "saturn_ketu_dist",
+        "saturn_rahu_dist",
+        "saturn_uchcha_bala",
+        "sun_rahu_sep_cos",
+        "sun_saturn_dist",
+        "venus_speed_dist"
+      ]
+    },
+    {
+      "fold": 3,
+      "train_origins": 2470,
+      "survivors": 148,
+      "null_mi_p95": 0.024278,
+      "selected": 21,
+      "max_mi": 0.096807,
+      "selected_cols": [
+        "jupiter_ketu_dist",
+        "jupiter_latitude",
+        "jupiter_longitude_cos",
+        "jupiter_longitude_sin",
+        "jupiter_rahu_dist",
+        "jupiter_saturn_sep_sin",
+        "jupiter_speed_lat",
+        "ketu_uchcha_bala",
+        "mars_ketu_dist",
+        "mars_longitude_cos",
+        "mars_speed_lat",
+        "mercury_ketu_dist",
+        "saturn_ketu_dist",
+        "saturn_latitude",
+        "saturn_longitude_cos",
+        "saturn_longitude_sin",
+        "saturn_rahu_dist",
+        "sun_ketu_dist",
+        "sun_rahu_dist",
+        "sun_rahu_sep_cos",
+        "sun_venus_dist"
+      ]
+    },
+    {
+      "fold": 4,
+      "train_origins": 2470,
+      "survivors": 145,
+      "null_mi_p95": 0.025131,
+      "selected": 15,
+      "max_mi": 0.084263,
+      "selected_cols": [
+        "jupiter_ketu_dist",
+        "jupiter_latitude",
+        "jupiter_longitude_cos",
+        "jupiter_longitude_sin",
+        "jupiter_rahu_sep_cos",
+        "jupiter_rahu_sep_sin",
+        "mars_speed_lat",
+        "mars_venus_dist",
+        "mercury_ketu_dist",
+        "rahu_uchcha_bala",
+        "saturn_distance",
+        "saturn_latitude",
+        "saturn_longitude_cos",
+        "saturn_longitude_sin",
+        "saturn_rahu_dist"
+      ]
+    },
+    {
+      "fold": 5,
+      "train_origins": 2470,
+      "survivors": 145,
+      "null_mi_p95": 0.023272,
+      "selected": 9,
+      "max_mi": 0.065811,
+      "selected_cols": [
+        "jupiter_latitude",
+        "jupiter_longitude_cos",
+        "jupiter_saturn_dist",
+        "mars_mercury_sep_sin",
+        "saturn_distance",
+        "saturn_rahu_dist",
+        "sun_venus_dist",
+        "sun_venus_sep_sin",
+        "venus_speed_long"
+      ]
+    }
+  ],
+  "set1": {
+    "numeric_features": [
+      "jupiter_ketu_dist",
+      "jupiter_latitude",
+      "jupiter_longitude_cos",
+      "jupiter_longitude_sin",
+      "jupiter_rahu_dist",
+      "saturn_ketu_dist",
+      "saturn_latitude",
+      "saturn_rahu_dist",
+      "sun_rahu_sep_cos"
+    ],
+    "n": 9,
+    "definition": "numeric features selected (MI > null p95) in at least 3 of 5 folds; the categorical part follows #15's per-model policy"
+  },
+  "frequency": {
+    "tithy_sin": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.003268
+    },
+    "tithy_cos": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.005347
+    },
+    "sun_longitude_sin": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.010999
+    },
+    "sun_longitude_cos": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.005595
+    },
+    "sun_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000907
+    },
+    "sun_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003327
+    },
+    "moon_longitude_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002697
+    },
+    "moon_longitude_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00198
+    },
+    "moon_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002745
+    },
+    "moon_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004071
+    },
+    "saturn_longitude_sin": {
+      "selected_folds": 2,
+      "survived_folds": 2,
+      "mean_mi": 0.045528
+    },
+    "saturn_longitude_cos": {
+      "selected_folds": 2,
+      "survived_folds": 2,
+      "mean_mi": 0.014474
+    },
+    "saturn_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002433
+    },
+    "saturn_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001229
+    },
+    "venus_longitude_sin": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.003153
+    },
+    "venus_longitude_cos": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.00479
+    },
+    "venus_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005917
+    },
+    "venus_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005131
+    },
+    "mercury_longitude_sin": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.002885
+    },
+    "mercury_longitude_cos": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.006151
+    },
+    "mercury_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001698
+    },
+    "mercury_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003328
+    },
+    "jupiter_longitude_sin": {
+      "selected_folds": 3,
+      "survived_folds": 4,
+      "mean_mi": 0.029696
+    },
+    "jupiter_longitude_cos": {
+      "selected_folds": 4,
+      "survived_folds": 4,
+      "mean_mi": 0.01746
+    },
+    "jupiter_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006342
+    },
+    "jupiter_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003331
+    },
+    "rahu_longitude_sin": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.033207
+    },
+    "rahu_longitude_cos": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.025903
+    },
+    "rahu_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.0
+    },
+    "rahu_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.000688
+    },
+    "ketu_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.000326
+    },
+    "ketu_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.00095
+    },
+    "mars_longitude_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.009146
+    },
+    "mars_longitude_cos": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.011035
+    },
+    "mars_nakshatra_pada_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003387
+    },
+    "mars_nakshatra_pada_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00192
+    },
+    "sun_mars_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.001352
+    },
+    "sun_mars_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.000518
+    },
+    "sun_mercury_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.005389
+    },
+    "sun_mercury_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.006292
+    },
+    "sun_jupiter_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.00493
+    },
+    "sun_jupiter_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.00295
+    },
+    "sun_venus_sep_sin": {
+      "selected_folds": 1,
+      "survived_folds": 3,
+      "mean_mi": 0.011305
+    },
+    "sun_venus_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.01667
+    },
+    "sun_saturn_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.003637
+    },
+    "sun_saturn_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.006577
+    },
+    "sun_rahu_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.008372
+    },
+    "sun_rahu_sep_cos": {
+      "selected_folds": 3,
+      "survived_folds": 5,
+      "mean_mi": 0.008211
+    },
+    "moon_mars_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006128
+    },
+    "moon_mars_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00671
+    },
+    "moon_mercury_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.002599
+    },
+    "moon_mercury_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.003969
+    },
+    "moon_jupiter_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005275
+    },
+    "moon_jupiter_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002828
+    },
+    "moon_venus_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004613
+    },
+    "moon_venus_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004595
+    },
+    "moon_saturn_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002829
+    },
+    "moon_saturn_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001294
+    },
+    "moon_rahu_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.001601
+    },
+    "moon_rahu_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.002811
+    },
+    "mars_mercury_sep_sin": {
+      "selected_folds": 2,
+      "survived_folds": 5,
+      "mean_mi": 0.005226
+    },
+    "mars_mercury_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002927
+    },
+    "mars_jupiter_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.007685
+    },
+    "mars_jupiter_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000991
+    },
+    "mars_venus_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00461
+    },
+    "mars_venus_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006693
+    },
+    "mars_saturn_sep_sin": {
+      "selected_folds": 2,
+      "survived_folds": 4,
+      "mean_mi": 0.01315
+    },
+    "mars_saturn_sep_cos": {
+      "selected_folds": 1,
+      "survived_folds": 4,
+      "mean_mi": 0.022155
+    },
+    "mars_rahu_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.010955
+    },
+    "mars_rahu_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.003931
+    },
+    "mercury_jupiter_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.001865
+    },
+    "mercury_jupiter_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.005847
+    },
+    "mercury_venus_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.008725
+    },
+    "mercury_venus_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.010191
+    },
+    "mercury_saturn_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.004052
+    },
+    "mercury_saturn_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.002608
+    },
+    "mercury_rahu_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.010858
+    },
+    "mercury_rahu_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.009606
+    },
+    "jupiter_venus_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004303
+    },
+    "jupiter_venus_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004269
+    },
+    "jupiter_saturn_sep_sin": {
+      "selected_folds": 1,
+      "survived_folds": 2,
+      "mean_mi": 0.018222
+    },
+    "jupiter_saturn_sep_cos": {
+      "selected_folds": 1,
+      "survived_folds": 2,
+      "mean_mi": 0.026697
+    },
+    "jupiter_rahu_sep_sin": {
+      "selected_folds": 2,
+      "survived_folds": 3,
+      "mean_mi": 0.022922
+    },
+    "jupiter_rahu_sep_cos": {
+      "selected_folds": 2,
+      "survived_folds": 3,
+      "mean_mi": 0.015405
+    },
+    "venus_saturn_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.003252
+    },
+    "venus_saturn_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.002919
+    },
+    "venus_rahu_sep_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005504
+    },
+    "venus_rahu_sep_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00775
+    },
+    "saturn_rahu_sep_sin": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.034953
+    },
+    "saturn_rahu_sep_cos": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.028264
+    },
+    "weekday_sin": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006775
+    },
+    "weekday_cos": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.009449
+    },
+    "sun_latitude": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002753
+    },
+    "sun_distance": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.008808
+    },
+    "sun_speed_long": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.004446
+    },
+    "sun_speed_lat": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.000514
+    },
+    "sun_speed_dist": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.01258
+    },
+    "sun_uchcha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.002774
+    },
+    "sun_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003652
+    },
+    "sun_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003498
+    },
+    "moon_latitude": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.00507
+    },
+    "moon_distance": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.001545
+    },
+    "moon_speed_long": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.006112
+    },
+    "moon_speed_lat": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.001723
+    },
+    "moon_speed_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00275
+    },
+    "moon_uday_bala": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.001582
+    },
+    "moon_uchcha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000803
+    },
+    "moon_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000445
+    },
+    "moon_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.008889
+    },
+    "saturn_latitude": {
+      "selected_folds": 3,
+      "survived_folds": 3,
+      "mean_mi": 0.026447
+    },
+    "saturn_distance": {
+      "selected_folds": 2,
+      "survived_folds": 4,
+      "mean_mi": 0.018398
+    },
+    "saturn_speed_long": {
+      "selected_folds": 0,
+      "survived_folds": 0,
+      "mean_mi": 0.00496
+    },
+    "saturn_speed_lat": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.015171
+    },
+    "saturn_speed_dist": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.004144
+    },
+    "saturn_uday_bala": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.008429
+    },
+    "saturn_uchcha_bala": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.041656
+    },
+    "saturn_vakra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001063
+    },
+    "saturn_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005964
+    },
+    "saturn_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003265
+    },
+    "venus_latitude": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000943
+    },
+    "venus_distance": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.008704
+    },
+    "venus_speed_long": {
+      "selected_folds": 2,
+      "survived_folds": 4,
+      "mean_mi": 0.013866
+    },
+    "venus_speed_lat": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.007619
+    },
+    "venus_speed_dist": {
+      "selected_folds": 1,
+      "survived_folds": 2,
+      "mean_mi": 0.00468
+    },
+    "venus_uday_bala": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.017957
+    },
+    "venus_uchcha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.003488
+    },
+    "venus_vakra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000442
+    },
+    "venus_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004247
+    },
+    "venus_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001975
+    },
+    "mercury_latitude": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002112
+    },
+    "mercury_distance": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005638
+    },
+    "mercury_speed_long": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006856
+    },
+    "mercury_speed_lat": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005985
+    },
+    "mercury_speed_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004723
+    },
+    "mercury_uday_bala": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.001591
+    },
+    "mercury_uchcha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.009557
+    },
+    "mercury_vakra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000594
+    },
+    "mercury_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003174
+    },
+    "mercury_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003572
+    },
+    "jupiter_latitude": {
+      "selected_folds": 4,
+      "survived_folds": 4,
+      "mean_mi": 0.013139
+    },
+    "jupiter_distance": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.008771
+    },
+    "jupiter_speed_long": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.00085
+    },
+    "jupiter_speed_lat": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.014998
+    },
+    "jupiter_speed_dist": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.010035
+    },
+    "jupiter_uday_bala": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.004149
+    },
+    "jupiter_uchcha_bala": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.028707
+    },
+    "jupiter_vakra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001318
+    },
+    "jupiter_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.016503
+    },
+    "jupiter_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005429
+    },
+    "rahu_uchcha_bala": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.018516
+    },
+    "rahu_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.001419
+    },
+    "rahu_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.001862
+    },
+    "ketu_uchcha_bala": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.018515
+    },
+    "ketu_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.001415
+    },
+    "ketu_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.00186
+    },
+    "mars_latitude": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.014733
+    },
+    "mars_distance": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.009068
+    },
+    "mars_speed_long": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006329
+    },
+    "mars_speed_lat": {
+      "selected_folds": 2,
+      "survived_folds": 5,
+      "mean_mi": 0.017447
+    },
+    "mars_speed_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000417
+    },
+    "mars_uday_bala": {
+      "selected_folds": 0,
+      "survived_folds": 1,
+      "mean_mi": 0.000761
+    },
+    "mars_uchcha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.008378
+    },
+    "mars_vakra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000637
+    },
+    "mars_kshetra_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.007117
+    },
+    "mars_navamsha_bala": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005463
+    },
+    "sun_mars_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.002609
+    },
+    "sun_mercury_dist": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.003835
+    },
+    "sun_jupiter_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001213
+    },
+    "sun_venus_dist": {
+      "selected_folds": 2,
+      "survived_folds": 5,
+      "mean_mi": 0.015531
+    },
+    "sun_saturn_dist": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.008896
+    },
+    "sun_rahu_dist": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.006007
+    },
+    "sun_ketu_dist": {
+      "selected_folds": 2,
+      "survived_folds": 5,
+      "mean_mi": 0.010723
+    },
+    "moon_mars_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.009536
+    },
+    "moon_mercury_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001384
+    },
+    "moon_jupiter_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005072
+    },
+    "moon_venus_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.004098
+    },
+    "moon_saturn_dist": {
+      "selected_folds": 0,
+      "survived_folds": 2,
+      "mean_mi": 0.001935
+    },
+    "moon_rahu_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.001604
+    },
+    "moon_ketu_dist": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.003879
+    },
+    "mars_mercury_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.003065
+    },
+    "mars_jupiter_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.00286
+    },
+    "mars_venus_dist": {
+      "selected_folds": 1,
+      "survived_folds": 5,
+      "mean_mi": 0.00851
+    },
+    "mars_saturn_dist": {
+      "selected_folds": 1,
+      "survived_folds": 2,
+      "mean_mi": 0.020476
+    },
+    "mars_rahu_dist": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.006388
+    },
+    "mars_ketu_dist": {
+      "selected_folds": 1,
+      "survived_folds": 4,
+      "mean_mi": 0.011975
+    },
+    "mercury_jupiter_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.000565
+    },
+    "mercury_venus_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.006256
+    },
+    "mercury_saturn_dist": {
+      "selected_folds": 0,
+      "survived_folds": 4,
+      "mean_mi": 0.002829
+    },
+    "mercury_rahu_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.005229
+    },
+    "mercury_ketu_dist": {
+      "selected_folds": 2,
+      "survived_folds": 5,
+      "mean_mi": 0.01361
+    },
+    "jupiter_venus_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.009822
+    },
+    "jupiter_saturn_dist": {
+      "selected_folds": 1,
+      "survived_folds": 1,
+      "mean_mi": 0.03918
+    },
+    "jupiter_rahu_dist": {
+      "selected_folds": 3,
+      "survived_folds": 4,
+      "mean_mi": 0.025427
+    },
+    "jupiter_ketu_dist": {
+      "selected_folds": 3,
+      "survived_folds": 4,
+      "mean_mi": 0.01189
+    },
+    "venus_saturn_dist": {
+      "selected_folds": 0,
+      "survived_folds": 3,
+      "mean_mi": 0.006544
+    },
+    "venus_rahu_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.007934
+    },
+    "venus_ketu_dist": {
+      "selected_folds": 0,
+      "survived_folds": 5,
+      "mean_mi": 0.008019
+    },
+    "saturn_rahu_dist": {
+      "selected_folds": 5,
+      "survived_folds": 5,
+      "mean_mi": 0.050915
+    },
+    "saturn_ketu_dist": {
+      "selected_folds": 3,
+      "survived_folds": 3,
+      "mean_mi": 0.043842
+    }
+  },
+  "reading": {
+    "signal": "astro-vs-return MI sits at the noise floor by design; the null band is the honest line, and how many features clear it is the finding \u2014 not a threshold tuned to produce a set"
+  }
+}
