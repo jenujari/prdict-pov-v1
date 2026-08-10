@@ -1,0 +1,772 @@
+{
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/15",
+  "builds_on": "https://github.com/jenujari/prdict-pov-v1/issues/30",
+  "source": {
+    "file": "nft50.csv",
+    "rows": 9893,
+    "features": 207
+  },
+  "totals": {
+    "features": 207,
+    "base_columns": 45,
+    "independent_quantities": 44,
+    "deterministic_dependents": 162
+  },
+  "base_set": {
+    "suffixes": [
+      "longitude",
+      "latitude",
+      "distance",
+      "speed_long",
+      "speed_lat",
+      "speed_dist",
+      "weekday"
+    ],
+    "reductions": {
+      "antipodal_longitude": {
+        "column": "ketu_longitude",
+        "determined_by": [
+          "rahu_longitude"
+        ],
+        "rule": "rahu_longitude + 180 (mod 360)",
+        "offset_mean": 180.0,
+        "offset_std": 0.0
+      },
+      "degenerate_removed_upstream": [
+        "ketu_latitude",
+        "ketu_speed_dist",
+        "ketu_speed_lat",
+        "ketu_speed_long",
+        "rahu_latitude",
+        "rahu_speed_dist",
+        "rahu_speed_lat",
+        "rahu_speed_long"
+      ]
+    }
+  },
+  "nakshatra": {
+    "declared_names": 28,
+    "standard_division": 27,
+    "row_purity_27_equal_bins": 0.9306,
+    "row_purity_2700_bins": 0.99972,
+    "conclusion": "nakshatra is a deterministic 28-fold (Abhijit) function of longitude; the equal-27-bin residual is the non-equal Abhijit boundary, not information"
+  },
+  "singletons": {
+    "tithy": {
+      "determined_by": [
+        "moon_longitude",
+        "sun_longitude"
+      ],
+      "rule": "floor(((moon - sun) mod 360) / 12) + 1",
+      "exact_fraction": 1.0
+    }
+  },
+  "families": {
+    "distance": {
+      "columns": [
+        "sun_distance",
+        "moon_distance",
+        "saturn_distance",
+        "venus_distance",
+        "mercury_distance",
+        "jupiter_distance",
+        "mars_distance"
+      ],
+      "n": 7,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    },
+    "is_retro": {
+      "columns": [
+        "saturn_is_retro",
+        "venus_is_retro",
+        "mercury_is_retro",
+        "jupiter_is_retro",
+        "mars_is_retro"
+      ],
+      "n": 5,
+      "kind": "sharp_bin",
+      "determined_by": "speed_long",
+      "rule": "speed_long < 0",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "kshetra_bala": {
+      "columns": [
+        "sun_kshetra_bala",
+        "moon_kshetra_bala",
+        "saturn_kshetra_bala",
+        "venus_kshetra_bala",
+        "mercury_kshetra_bala",
+        "jupiter_kshetra_bala",
+        "rahu_kshetra_bala",
+        "ketu_kshetra_bala",
+        "mars_kshetra_bala"
+      ],
+      "n": 9,
+      "kind": "smooth_bala",
+      "determined_by": "longitude",
+      "rule": "dignity_weight * triangular(lon, 30)",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a smooth function of a base column; kept for both, but redundant \u2014 the near-linear part is removed by #12's prune and the rest collapsed by #13's PCA, which linear tools *can* do for a smooth dependency"
+    },
+    "latitude": {
+      "columns": [
+        "sun_latitude",
+        "moon_latitude",
+        "saturn_latitude",
+        "venus_latitude",
+        "mercury_latitude",
+        "jupiter_latitude",
+        "mars_latitude"
+      ],
+      "n": 7,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    },
+    "longitude": {
+      "columns": [
+        "sun_longitude",
+        "moon_longitude",
+        "saturn_longitude",
+        "venus_longitude",
+        "mercury_longitude",
+        "jupiter_longitude",
+        "rahu_longitude",
+        "ketu_longitude",
+        "mars_longitude"
+      ],
+      "n": 9,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    },
+    "nakshatra_name": {
+      "columns": [
+        "sun_nakshatra_name",
+        "moon_nakshatra_name",
+        "saturn_nakshatra_name",
+        "venus_nakshatra_name",
+        "mercury_nakshatra_name",
+        "jupiter_nakshatra_name",
+        "rahu_nakshatra_name",
+        "ketu_nakshatra_name",
+        "mars_nakshatra_name"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "28-fold Abhijit division of longitude",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "nakshatra_pada": {
+      "columns": [
+        "sun_nakshatra_pada",
+        "moon_nakshatra_pada",
+        "saturn_nakshatra_pada",
+        "venus_nakshatra_pada",
+        "mercury_nakshatra_pada",
+        "jupiter_nakshatra_pada",
+        "rahu_nakshatra_pada",
+        "ketu_nakshatra_pada",
+        "mars_nakshatra_pada"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "108-fold division of longitude",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "navamsa_sign": {
+      "columns": [
+        "sun_navamsa_sign",
+        "moon_navamsa_sign",
+        "saturn_navamsa_sign",
+        "venus_navamsa_sign",
+        "mercury_navamsa_sign",
+        "jupiter_navamsa_sign",
+        "rahu_navamsa_sign",
+        "ketu_navamsa_sign",
+        "mars_navamsa_sign"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "floor(lon / (30/9)) mod 12",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "navamsha_bala": {
+      "columns": [
+        "sun_navamsha_bala",
+        "moon_navamsha_bala",
+        "saturn_navamsha_bala",
+        "venus_navamsha_bala",
+        "mercury_navamsha_bala",
+        "jupiter_navamsha_bala",
+        "rahu_navamsha_bala",
+        "ketu_navamsha_bala",
+        "mars_navamsha_bala"
+      ],
+      "n": 9,
+      "kind": "smooth_bala",
+      "determined_by": "longitude",
+      "rule": "dignity_weight * triangular(lon, 30/9)",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a smooth function of a base column; kept for both, but redundant \u2014 the near-linear part is removed by #12's prune and the rest collapsed by #13's PCA, which linear tools *can* do for a smooth dependency"
+    },
+    "separation": {
+      "columns": [
+        "sun_mars_dist",
+        "sun_mercury_dist",
+        "sun_jupiter_dist",
+        "sun_venus_dist",
+        "sun_saturn_dist",
+        "sun_rahu_dist",
+        "sun_ketu_dist",
+        "moon_mars_dist",
+        "moon_mercury_dist",
+        "moon_jupiter_dist",
+        "moon_venus_dist",
+        "moon_saturn_dist",
+        "moon_rahu_dist",
+        "moon_ketu_dist",
+        "mars_mercury_dist",
+        "mars_jupiter_dist",
+        "mars_venus_dist",
+        "mars_saturn_dist",
+        "mars_rahu_dist",
+        "mars_ketu_dist",
+        "mercury_jupiter_dist",
+        "mercury_venus_dist",
+        "mercury_saturn_dist",
+        "mercury_rahu_dist",
+        "mercury_ketu_dist",
+        "jupiter_venus_dist",
+        "jupiter_saturn_dist",
+        "jupiter_rahu_dist",
+        "jupiter_ketu_dist",
+        "venus_saturn_dist",
+        "venus_rahu_dist",
+        "venus_ketu_dist",
+        "saturn_rahu_dist",
+        "saturn_ketu_dist"
+      ],
+      "n": 34,
+      "kind": "interaction",
+      "determined_by": "longitude pair",
+      "rule": "|lon_a - lon_b| folded into [0, 180]",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a separation between two bodies; genuinely useful and awkward for either model to reconstruct from separate longitudes (a tree splits axis-aligned), so kept for both"
+    },
+    "sign": {
+      "columns": [
+        "sun_sign",
+        "moon_sign",
+        "saturn_sign",
+        "venus_sign",
+        "mercury_sign",
+        "jupiter_sign",
+        "rahu_sign",
+        "ketu_sign",
+        "mars_sign"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "floor(lon / 30) mod 12",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "sign_lord": {
+      "columns": [
+        "sun_sign_lord",
+        "moon_sign_lord",
+        "saturn_sign_lord",
+        "venus_sign_lord",
+        "mercury_sign_lord",
+        "jupiter_sign_lord",
+        "rahu_sign_lord",
+        "ketu_sign_lord",
+        "mars_sign_lord"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "ruling planet of the sign, so of floor(lon/30)",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "sign_lordship": {
+      "columns": [
+        "sun_sign_lordship",
+        "moon_sign_lordship",
+        "saturn_sign_lordship",
+        "venus_sign_lordship",
+        "mercury_sign_lordship",
+        "jupiter_sign_lordship",
+        "mars_sign_lordship"
+      ],
+      "n": 7,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "Naisargika maitri of the sign's lord",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "speed_category": {
+      "columns": [
+        "sun_speed_category",
+        "moon_speed_category",
+        "saturn_speed_category",
+        "venus_speed_category",
+        "mercury_speed_category",
+        "jupiter_speed_category",
+        "mars_speed_category"
+      ],
+      "n": 7,
+      "kind": "sharp_bin",
+      "determined_by": "speed_long",
+      "rule": "monotone binning of speed_long",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "speed_dist": {
+      "columns": [
+        "sun_speed_dist",
+        "moon_speed_dist",
+        "saturn_speed_dist",
+        "venus_speed_dist",
+        "mercury_speed_dist",
+        "jupiter_speed_dist",
+        "mars_speed_dist"
+      ],
+      "n": 7,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    },
+    "speed_lat": {
+      "columns": [
+        "sun_speed_lat",
+        "moon_speed_lat",
+        "saturn_speed_lat",
+        "venus_speed_lat",
+        "mercury_speed_lat",
+        "jupiter_speed_lat",
+        "mars_speed_lat"
+      ],
+      "n": 7,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    },
+    "speed_long": {
+      "columns": [
+        "sun_speed_long",
+        "moon_speed_long",
+        "saturn_speed_long",
+        "venus_speed_long",
+        "mercury_speed_long",
+        "jupiter_speed_long",
+        "mars_speed_long"
+      ],
+      "n": 7,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    },
+    "tithy": {
+      "columns": [
+        "tithy"
+      ],
+      "n": 1,
+      "kind": "interaction",
+      "determined_by": "moon_longitude + sun_longitude",
+      "rule": "floor((moon - sun)/12) + 1",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a separation between two bodies; genuinely useful and awkward for either model to reconstruct from separate longitudes (a tree splits axis-aligned), so kept for both"
+    },
+    "uchcha_bala": {
+      "columns": [
+        "sun_uchcha_bala",
+        "moon_uchcha_bala",
+        "saturn_uchcha_bala",
+        "venus_uchcha_bala",
+        "mercury_uchcha_bala",
+        "jupiter_uchcha_bala",
+        "rahu_uchcha_bala",
+        "ketu_uchcha_bala",
+        "mars_uchcha_bala"
+      ],
+      "n": 9,
+      "kind": "smooth_bala",
+      "determined_by": "longitude",
+      "rule": "75 + 25*cos(lon - reference)",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a smooth function of a base column; kept for both, but redundant \u2014 the near-linear part is removed by #12's prune and the rest collapsed by #13's PCA, which linear tools *can* do for a smooth dependency"
+    },
+    "uday_bala": {
+      "columns": [
+        "moon_uday_bala",
+        "saturn_uday_bala",
+        "venus_uday_bala",
+        "mercury_uday_bala",
+        "jupiter_uday_bala",
+        "mars_uday_bala"
+      ],
+      "n": 6,
+      "kind": "smooth_bala",
+      "determined_by": "longitude",
+      "rule": "ramp from the combustion orb (also needs sun_longitude)",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a smooth function of a base column; kept for both, but redundant \u2014 the near-linear part is removed by #12's prune and the rest collapsed by #13's PCA, which linear tools *can* do for a smooth dependency"
+    },
+    "vakra_bala": {
+      "columns": [
+        "saturn_vakra_bala",
+        "venus_vakra_bala",
+        "mercury_vakra_bala",
+        "jupiter_vakra_bala",
+        "mars_vakra_bala"
+      ],
+      "n": 5,
+      "kind": "smooth_bala",
+      "determined_by": "speed_long",
+      "rule": "-k * speed_long if retrograde else 0",
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "a smooth function of a base column; kept for both, but redundant \u2014 the near-linear part is removed by #12's prune and the rest collapsed by #13's PCA, which linear tools *can* do for a smooth dependency"
+    },
+    "vargottama": {
+      "columns": [
+        "sun_vargottama",
+        "moon_vargottama",
+        "saturn_vargottama",
+        "venus_vargottama",
+        "mercury_vargottama",
+        "jupiter_vargottama",
+        "rahu_vargottama",
+        "ketu_vargottama",
+        "mars_vargottama"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "sign == navamsa_sign",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "vedha": {
+      "columns": [
+        "sun_vedha",
+        "moon_vedha",
+        "saturn_vedha",
+        "venus_vedha",
+        "mercury_vedha",
+        "jupiter_vedha",
+        "mars_vedha"
+      ],
+      "n": 7,
+      "kind": "sharp_bin",
+      "determined_by": "speed_long",
+      "rule": "a function of speed_category",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "vedha_target": {
+      "columns": [
+        "sun_vedha_target",
+        "moon_vedha_target",
+        "saturn_vedha_target",
+        "venus_vedha_target",
+        "mercury_vedha_target",
+        "jupiter_vedha_target",
+        "rahu_vedha_target",
+        "ketu_vedha_target",
+        "mars_vedha_target"
+      ],
+      "n": 9,
+      "kind": "sharp_bin",
+      "determined_by": "longitude",
+      "rule": "a function of (nakshatra_name, vedha)",
+      "keep": {
+        "xgboost": false,
+        "tft": true
+      },
+      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+    },
+    "weekday": {
+      "columns": [
+        "weekday"
+      ],
+      "n": 1,
+      "kind": "base",
+      "determined_by": null,
+      "rule": null,
+      "keep": {
+        "xgboost": true,
+        "tft": true
+      },
+      "rationale": "independent input \u2014 kept for both models"
+    }
+  },
+  "prune_survival": {
+    "threshold": 0.95,
+    "families": {
+      "sign": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.185,
+        "survives_prune": true
+      },
+      "navamsa_sign": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.125,
+        "survives_prune": true
+      },
+      "nakshatra_name": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.447,
+        "survives_prune": true
+      },
+      "nakshatra_pada": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.141,
+        "survives_prune": true
+      },
+      "sign_lord": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.332,
+        "survives_prune": true
+      },
+      "sign_lordship": {
+        "columns": 7,
+        "max_abs_r_vs_base": 0.706,
+        "survives_prune": true
+      },
+      "vargottama": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.13,
+        "survives_prune": true
+      },
+      "is_retro": {
+        "columns": 5,
+        "max_abs_r_vs_base": 0.88,
+        "survives_prune": true
+      },
+      "speed_category": {
+        "columns": 7,
+        "max_abs_r_vs_base": 0.666,
+        "survives_prune": true
+      },
+      "vedha": {
+        "columns": 7,
+        "max_abs_r_vs_base": 0.873,
+        "survives_prune": true
+      },
+      "vedha_target": {
+        "columns": 9,
+        "max_abs_r_vs_base": 0.333,
+        "survives_prune": true
+      }
+    },
+    "all_survive": true
+  },
+  "pca_prediction": {
+    "block": "linear_numeric",
+    "n_columns": 107,
+    "n_components_0.95": 62,
+    "n_components_0.99": 79,
+    "note": "modest collapse \u2014 nonlinear (cos / triangular) determinism is invisible to linear PCA, so the block does not fall to the base-set size"
+  },
+  "policy": {
+    "xgboost": {
+      "drop": [
+        "jupiter_is_retro",
+        "jupiter_nakshatra_name",
+        "jupiter_nakshatra_pada",
+        "jupiter_navamsa_sign",
+        "jupiter_sign",
+        "jupiter_sign_lord",
+        "jupiter_sign_lordship",
+        "jupiter_speed_category",
+        "jupiter_vargottama",
+        "jupiter_vedha",
+        "jupiter_vedha_target",
+        "ketu_longitude",
+        "ketu_nakshatra_name",
+        "ketu_nakshatra_pada",
+        "ketu_navamsa_sign",
+        "ketu_sign",
+        "ketu_sign_lord",
+        "ketu_vargottama",
+        "ketu_vedha_target",
+        "mars_is_retro",
+        "mars_nakshatra_name",
+        "mars_nakshatra_pada",
+        "mars_navamsa_sign",
+        "mars_sign",
+        "mars_sign_lord",
+        "mars_sign_lordship",
+        "mars_speed_category",
+        "mars_vargottama",
+        "mars_vedha",
+        "mars_vedha_target",
+        "mercury_is_retro",
+        "mercury_nakshatra_name",
+        "mercury_nakshatra_pada",
+        "mercury_navamsa_sign",
+        "mercury_sign",
+        "mercury_sign_lord",
+        "mercury_sign_lordship",
+        "mercury_speed_category",
+        "mercury_vargottama",
+        "mercury_vedha",
+        "mercury_vedha_target",
+        "moon_nakshatra_name",
+        "moon_nakshatra_pada",
+        "moon_navamsa_sign",
+        "moon_sign",
+        "moon_sign_lord",
+        "moon_sign_lordship",
+        "moon_speed_category",
+        "moon_vargottama",
+        "moon_vedha",
+        "moon_vedha_target",
+        "rahu_nakshatra_name",
+        "rahu_nakshatra_pada",
+        "rahu_navamsa_sign",
+        "rahu_sign",
+        "rahu_sign_lord",
+        "rahu_vargottama",
+        "rahu_vedha_target",
+        "saturn_is_retro",
+        "saturn_nakshatra_name",
+        "saturn_nakshatra_pada",
+        "saturn_navamsa_sign",
+        "saturn_sign",
+        "saturn_sign_lord",
+        "saturn_sign_lordship",
+        "saturn_speed_category",
+        "saturn_vargottama",
+        "saturn_vedha",
+        "saturn_vedha_target",
+        "sun_nakshatra_name",
+        "sun_nakshatra_pada",
+        "sun_navamsa_sign",
+        "sun_sign",
+        "sun_sign_lord",
+        "sun_sign_lordship",
+        "sun_speed_category",
+        "sun_vargottama",
+        "sun_vedha",
+        "sun_vedha_target",
+        "venus_is_retro",
+        "venus_nakshatra_name",
+        "venus_nakshatra_pada",
+        "venus_navamsa_sign",
+        "venus_sign",
+        "venus_sign_lord",
+        "venus_sign_lordship",
+        "venus_speed_category",
+        "venus_vargottama",
+        "venus_vedha",
+        "venus_vedha_target"
+      ],
+      "keep_n": 117,
+      "note": "sharp categorical/boolean bins dropped; trees recover them from the base"
+    },
+    "tft": {
+      "drop": [
+        "ketu_longitude"
+      ],
+      "keep_n": 206,
+      "note": "sharp bins kept as embeddings; only the antipodal Ketu longitude drops"
+    }
+  },
+  "what_12_inherits": "Stage-1 still runs. #15 removes the *sharp* redundancy the linear prune cannot see and shrinks the XGBoost input; the flattened 90-session window still holds heavy day-lag collinearity in the surviving columns, which is exactly what #12's |r| >= 0.95 prune is for."
+}
