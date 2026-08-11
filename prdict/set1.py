@@ -55,12 +55,9 @@ class Set1Spec:
         from the numeric selection so a change to #15's policy does not silently
         move set 1's numeric definition, and vice versa.
         """
-        from prdict import encoding, independence
+        from prdict import independence
 
-        espec = encoding.load_spec()
-        cat_bool = set(espec.family("categorical").columns) | set(espec.family("boolean").columns)
-        dropped = set(independence.load_spec().drop_for(model))
-        categorical = [c for c in espec.all_columns if c in cat_bool and c not in dropped]
+        categorical = independence.load_spec().categorical_columns_for(model)
         return list(self.numeric_features) + categorical
 
 
