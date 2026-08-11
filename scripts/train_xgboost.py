@@ -14,9 +14,22 @@ it can be launched and monitored independently of this session.
 from `kb/xgboost_spec.json`, ~204 total XGBoost fits. A context that raises is
 logged and skipped rather than aborting the whole run; the rest still complete.
 
+**Resumable per context.** Each context's prediction parquet is written the
+moment it finishes, alongside a small metadata sidecar recording which
+`kb/xgboost_spec.json` it ran under. Relaunching this script (same command,
+nothing special) skips every context whose sidecar matches the *current*
+spec and only runs what's left — so a machine restart mid-run costs at most
+the one context that was in flight, not the whole thing. If `kb/
+xgboost_spec.json` changes between runs, every context is treated as stale
+and rerun rather than silently mixing results from two different budgets.
+
 Output:
   predictions/xgboost/{fold1..5,final}_{set1,set2}.parquet
       origin date index, y_pred_1..y_pred_10 — #14's scorecard input.
+  predictions/xgboost/{fold1..5,final}_{set1,set2}.meta.json
+      the resume checkpoint — winning hyperparameters, best_iteration, inner-val
+      rmse and the spec fingerprint it ran under. Not meant to be read by hand;
+      kb/xgboost_run.md is the human-readable table over the same numbers.
   kb/xgboost_run.md
       winning hyperparameters, inner-val rmse, and timing per context — the
       "run is reproducible" half of #38's done-when.
@@ -34,6 +47,8 @@ Run via ./scripts/run_xgboost_training.sh, or directly:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import sys
 import time
@@ -42,6 +57,8 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TextIO
+
+import pandas as pd
 
 from prdict import encoding
 from prdict.dataset import FlatMatrix
@@ -133,6 +150,12 @@ class Dashboard(Progress):
             self.log(f"{ctx.name}: FAILED  {ctx.error}")
         self._render(force=True)
 
+    def mark_resumed(self, ctx: ContextState, result: RunResult) -> None:
+        """A context loaded from a prior run's checkpoint — never actually run here."""
+        ctx.status, ctx.result, ctx.seconds = "done", result, result.seconds
+        self.log(f"{ctx.name}: resumed from checkpoint  rmse={result.inner_val_rmse:.5f}")
+        self._render(force=True)
+
     # Progress interface — called from deep inside xgboost_model's search loop.
     def on_round(self, epoch: int, max_round: int) -> None:
         if self._current is not None:
@@ -212,6 +235,72 @@ def _all_contexts(fs, folds) -> list[tuple[str, str]]:
     return pairs
 
 
+# --------------------------------------------------------------------------
+# per-context checkpointing — what makes the run resumable
+# --------------------------------------------------------------------------
+
+
+def spec_fingerprint(xgb_spec: dict) -> str:
+    """A short hash of the training contract a context ran under.
+
+    Stored alongside every checkpoint so a resumed run can tell "already done
+    under this exact budget" apart from "done under a budget that has since
+    changed" — the latter must be rerun, or the run silently mixes results
+    from two different searches.
+    """
+    return hashlib.sha256(json.dumps(xgb_spec, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _parquet_path(context: str, set_name: str) -> Path:
+    return PRED_DIR / f"{context}_{set_name}.parquet"
+
+
+def _meta_path(context: str, set_name: str) -> Path:
+    return PRED_DIR / f"{context}_{set_name}.meta.json"
+
+
+def _persist_context(result: RunResult, fingerprint: str) -> None:
+    """Write one context's checkpoint immediately — the unit a resume can skip."""
+    PRED_DIR.mkdir(parents=True, exist_ok=True)
+    result.predictions.to_parquet(_parquet_path(result.context, result.set_name))
+    meta = {
+        "spec_fingerprint": fingerprint,
+        "winning_params": result.winning_params,
+        "best_iteration": result.best_iteration,
+        "inner_val_rmse": result.inner_val_rmse,
+        "n_train": result.n_train,
+        "n_predict": result.n_predict,
+        "seconds": result.seconds,
+    }
+    _meta_path(result.context, result.set_name).write_text(json.dumps(meta, indent=2))
+
+
+def _load_checkpoint(context: str, set_name: str, fingerprint: str) -> RunResult | None:
+    """A prior run's result for this context, if it exists and matches `fingerprint`.
+
+    A meta file whose `spec_fingerprint` doesn't match the current
+    `kb/xgboost_spec.json` is stale — from a different search space or
+    budget — and is treated as not-done rather than trusted.
+    """
+    ppath, mpath = _parquet_path(context, set_name), _meta_path(context, set_name)
+    if not (ppath.exists() and mpath.exists()):
+        return None
+    meta = json.loads(mpath.read_text())
+    if meta["spec_fingerprint"] != fingerprint:
+        return None
+    return RunResult(
+        context=context,
+        set_name=set_name,
+        predictions=pd.read_parquet(ppath),
+        winning_params=meta["winning_params"],
+        best_iteration=meta["best_iteration"],
+        inner_val_rmse=meta["inner_val_rmse"],
+        n_train=meta["n_train"],
+        n_predict=meta["n_predict"],
+        seconds=meta["seconds"],
+    )
+
+
 def run_all(dash: Dashboard) -> list[RunResult]:
     cal = load_calendar()
     spec = encoding.load_spec()
@@ -245,10 +334,18 @@ def run_all(dash: Dashboard) -> list[RunResult]:
         inner_val_origins=final_inner_val, predict_origins=fs.holdout(cal), fold_for_pca=final_block,
     )
 
+    fingerprint = spec_fingerprint(xgb_spec)
     results: list[RunResult] = []
     ctx_by_name = {c.name: c for c in dash.contexts}
     for context, set_name in _all_contexts(fs, folds):
         ctx = ctx_by_name[f"{context}/{set_name}"]
+
+        checkpoint = _load_checkpoint(context, set_name, fingerprint)
+        if checkpoint is not None:
+            results.append(checkpoint)
+            dash.mark_resumed(ctx, checkpoint)
+            continue
+
         dash.begin_context(ctx)
         try:
             kwargs = specs_by_context[context]
@@ -259,20 +356,25 @@ def run_all(dash: Dashboard) -> list[RunResult]:
                 progress=dash,
                 **kwargs,
             )
+            _persist_context(r, fingerprint)
             results.append(r)
             dash.end_context(ctx, r, None)
         except Exception as exc:  # noqa: BLE001 - one bad context must not kill the run
             dash.end_context(ctx, None, exc)
 
+        write_run_table(results, n_trials=xgb_spec["search"]["n_trials"])
+        write_summary(dash, time.monotonic() - dash.start)
+
     return results
 
 
-def persist(results: list[RunResult], n_trials: int) -> None:
-    PRED_DIR.mkdir(parents=True, exist_ok=True)
-    for r in results:
-        path = PRED_DIR / f"{r.context}_{r.set_name}.parquet"
-        r.predictions.to_parquet(path)
+def write_run_table(results: list[RunResult], n_trials: int) -> None:
+    """`kb/xgboost_run.md` from whatever's in `results` right now.
 
+    Cheap to call after every context — the aggregate table always reflects
+    everything completed so far, from this invocation or a prior one before a
+    restart, not only the final state.
+    """
     lines = [
         "# XGBoost run — predictions and winning hyperparameters",
         "",
@@ -303,16 +405,21 @@ def persist(results: list[RunResult], n_trials: int) -> None:
 
 
 def write_summary(dash: Dashboard, elapsed: float) -> None:
-    """A plain-text summary meant to be pasted back into a Claude Code session."""
+    """A plain-text summary meant to be pasted back into a Claude Code session.
+
+    Rewritten after every context (not only at the true end), so it is always
+    accurate to check mid-run, after a restart, or once everything is done —
+    "not reached" only ever means "not reached yet".
+    """
     done = [c for c in dash.contexts if c.status == "done"]
     failed = [c for c in dash.contexts if c.status == "failed"]
     pending = [c for c in dash.contexts if c.status not in ("done", "failed")]
 
     lines = [
         "XGBoost training run — summary",
-        f"Finished: {datetime.now().isoformat(timespec='seconds')}",
-        f"Total wall clock: {_fmt(elapsed)}",
-        f"Contexts: {len(done)} done, {len(failed)} failed, {len(pending)} not reached",
+        f"Last updated: {datetime.now().isoformat(timespec='seconds')}",
+        f"Elapsed so far: {_fmt(elapsed)}",
+        f"Contexts: {len(done)} done, {len(failed)} failed, {len(pending)} not reached yet",
         "",
     ]
     if done:
@@ -346,18 +453,18 @@ def main() -> None:
     contexts = [ContextState(name=f"{c}/{s}") for c, s in _all_contexts(fs, folds)]
     dash = Dashboard(contexts=contexts)
 
-    start = time.monotonic()
     try:
         results = run_all(dash)
     except KeyboardInterrupt:
-        dash.log("=== interrupted by user ===")
+        dash.log("=== interrupted by user — already-completed contexts are checkpointed ===")
         results = [c.result for c in dash.contexts if c.result is not None]
     finally:
-        elapsed = time.monotonic() - start
+        # run_all() already wrote both files after every context; this is just a
+        # final, idempotent refresh in case the loop stopped between contexts.
         n_trials = load_xgboost_spec()["search"]["n_trials"]
         if results:
-            persist(results, n_trials=n_trials)
-        write_summary(dash, elapsed)
+            write_run_table(results, n_trials=n_trials)
+        write_summary(dash, time.monotonic() - dash.start)
         dash.close()
 
 

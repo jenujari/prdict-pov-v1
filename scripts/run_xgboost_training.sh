@@ -21,13 +21,21 @@
 #   - kb/xgboost_run.md                     — winning hyperparameters table
 #   - runs/xgboost_summary.txt              — plain-text summary; paste this
 #                                              back into a Claude Code session
-#                                              to resume from where this left off
+#                                              to pick the work back up
+#
+# Resumable: each context checkpoints (predictions + a small metadata sidecar)
+# the moment it finishes. If the machine reboots, the process is killed, or you
+# just Ctrl-C, run this exact same command again — already-finished contexts
+# are detected and skipped, so you only pay for whatever was still pending.
+# (If kb/xgboost_spec.json changes in between, everything reruns from scratch —
+# a checkpoint only counts under the budget it was actually produced with.)
 #
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "Starting XGBoost training (#38) — see runs/xgboost_training.log for the plain log."
-echo "Ctrl-C to stop early; partial results still get persisted."
+echo "Ctrl-C to stop early; already-finished contexts are checkpointed and this script"
+echo "can simply be rerun later to pick up where it left off."
 echo
 
 exec uv run python scripts/train_xgboost.py
