@@ -79,6 +79,24 @@ class IndependenceSpec:
         """Every column that is an exact function of the base set."""
         return [c for f in self.families if f.kind != "base" for c in f.columns]
 
+    def categorical_columns_for(self, model: str) -> list[str]:
+        """The real encoded categorical/boolean columns #15 keeps for `model`.
+
+        `keep_for(model)` mixes in raw pre-encoding names (`*_longitude`,
+        `*_nakshatra_pada`, `tithy`) that have no standalone existence in the
+        actual 280-column encoded space — only their `cyclic` sin/cos pair does.
+        Intersecting against `encoding`'s real `categorical`/`boolean` families is
+        what makes that harmless; every set that composes a model's categorical
+        input (set 1, set 2) does it this way rather than re-deriving it.
+        """
+        from prdict import encoding
+
+        _check_model(model)
+        espec = encoding.load_spec()
+        cat_bool = set(espec.family("categorical").columns) | set(espec.family("boolean").columns)
+        keep = set(self.keep_for(model))
+        return [c for c in espec.all_columns if c in cat_bool and c in keep]
+
 
 def _check_model(model: str) -> None:
     if model not in MODELS:
