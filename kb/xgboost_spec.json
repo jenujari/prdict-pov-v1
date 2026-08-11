@@ -1,0 +1,68 @@
+{
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/38",
+  "core": {
+    "multi_strategy": "one_output_per_tree",
+    "tree_method": "hist",
+    "target": "10-step scored vector (prdict.targets.build(cal).y) \u2014 never the 30-step TFT training extension",
+    "rejected": {
+      "multi_output_tree": "ignores max_cat_to_onehot and one-hot-splits every categorical (#6, empirically confirmed: 100/100 splits of size 1 vs sizes 1-26 under one_output_per_tree) \u2014 conflicts with map decision 6"
+    }
+  },
+  "categoricals": {
+    "encoding": "integer codes + feature_types marking \"c\" columns",
+    "dmatrix_flag": "enable_categorical=True",
+    "note": "matches dataset.FlatMatrix.values/feature_types exactly; never pandas category dtype passed to DMatrix directly"
+  },
+  "search": {
+    "space": {
+      "max_depth": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "eta": [
+        0.01,
+        0.03,
+        0.05,
+        0.1
+      ],
+      "subsample": [
+        0.7,
+        0.85,
+        1.0
+      ],
+      "colsample_bytree": [
+        0.6,
+        0.8,
+        1.0
+      ],
+      "min_child_weight": [
+        1,
+        5,
+        10
+      ],
+      "reg_lambda": [
+        1.0,
+        5.0,
+        10.0
+      ]
+    },
+    "n_trials": 16,
+    "seed": 0,
+    "budget_rule": "fixed in writing here before any model runs; not expanded after seeing inner validation results (kb/fold_spec.md's rule, applied to XGBoost's own search)",
+    "reads": "inner_train/inner_val only (Fold.inner_train/inner_val, or FoldSpec.final_inner_split for the holdout refit) \u2014 never the outer val or the holdout",
+    "max_boost_round": 500,
+    "early_stopping_rounds": 30,
+    "eval_metric": "rmse",
+    "eval_metric_note": "XGBoost pools rmse across all 10 outputs natively under multi-output \u2014 no custom metric needed"
+  },
+  "selection_and_refit": {
+    "rule": "best trial by inner-val rmse",
+    "refit": "the winning (params, best_iteration) refits on the ENTIRE block (fold.train, or final_train for the holdout arm) with best_iteration fixed as n_estimators \u2014 no further early stopping, so no further validation data is read"
+  },
+  "runs": {
+    "contexts": "5 folds x 2 sets (predict on fold.val) + 1 final refit x 2 sets (predict on holdout) = 12 prediction sets",
+    "total_fits": "12 x (16 search trials + 1 final refit) = 204"
+  }
+}
