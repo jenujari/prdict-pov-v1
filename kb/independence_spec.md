@@ -46,21 +46,25 @@ Stage-1 of #12 is pairwise `|r| >= 0.95`. Every sharp bin is an exact function o
 
 All 11 survive — the redundancy is invisible to a linear prune. That is the whole reason this ticket exists.
 
+`*_nakshatra_pada` is measured here for the same reason as the rest, but its row in the table below does not follow from this evidence — see the note there.
+
 ## Keep / drop, per family
 
 The decision follows from the family's *kind*, and it cuts differently for the two models. A tree recovers a boundary like `floor(lon/30)` from the base column for free, so sharp bins are dropped for XGBoost; a smooth encoder cannot make that boundary, so they are kept as embeddings for the TFT. Smooth balas ride into `linear_numeric` for both and are collapsed downstream. Interactions are kept for both.
+
+**Exception: angular-encoded families.** `*_longitude`, `*_nakshatra_pada` and `tithy` are typed **angular** by #3, so #7 already encodes them as sin/cos pairs — there is no discrete raw form in the actual model input for either model to drop. `longitude` and `tithy` already land on keep-both under their own kind; `*_nakshatra_pada` looks like an ordinary `sharp_bin` and would otherwise default to drop-for-XGBoost, which is unenforceable against a cyclic encoding — pinned to keep-both here instead of silently no-op-ing.
 
 | Family | n | Kind | Determined by | XGBoost | TFT |
 |--------|---|------|---------------|---------|-----|
 | `*_distance` | 7 | base | — | keep | keep |
 | `*_latitude` | 7 | base | — | keep | keep |
-| `*_longitude` | 9 | base | — | keep | keep |
+| `*_longitude` † | 9 | base | — | keep | keep |
 | `*_speed_dist` | 7 | base | — | keep | keep |
 | `*_speed_lat` | 7 | base | — | keep | keep |
 | `*_speed_long` | 7 | base | — | keep | keep |
 | `*_weekday` | 1 | base | — | keep | keep |
 | `*_separation` | 34 | interaction | longitude pair | keep | keep |
-| `*_tithy` | 1 | interaction | moon_longitude + sun_longitude | keep | keep |
+| `*_tithy` † | 1 | interaction | moon_longitude + sun_longitude | keep | keep |
 | `*_kshetra_bala` | 9 | smooth_bala | longitude | keep | keep |
 | `*_navamsha_bala` | 9 | smooth_bala | longitude | keep | keep |
 | `*_uchcha_bala` | 9 | smooth_bala | longitude | keep | keep |
@@ -68,7 +72,7 @@ The decision follows from the family's *kind*, and it cuts differently for the t
 | `*_vakra_bala` | 5 | smooth_bala | speed_long | keep | keep |
 | `*_is_retro` | 5 | sharp_bin | speed_long | **drop** | keep |
 | `*_nakshatra_name` | 9 | sharp_bin | longitude | **drop** | keep |
-| `*_nakshatra_pada` | 9 | sharp_bin | longitude | **drop** | keep |
+| `*_nakshatra_pada` † | 9 | sharp_bin | longitude | keep | keep |
 | `*_navamsa_sign` | 9 | sharp_bin | longitude | **drop** | keep |
 | `*_sign` | 9 | sharp_bin | longitude | **drop** | keep |
 | `*_sign_lord` | 9 | sharp_bin | longitude | **drop** | keep |
@@ -78,7 +82,9 @@ The decision follows from the family's *kind*, and it cuts differently for the t
 | `*_vedha` | 7 | sharp_bin | speed_long | **drop** | keep |
 | `*_vedha_target` | 9 | sharp_bin | longitude | **drop** | keep |
 
-- **XGBoost** keeps 117 of 207 features — sharp categorical/boolean bins dropped; trees recover them from the base.
+† angular-encoded — see the exception above.
+
+- **XGBoost** keeps 126 of 207 features — sharp categorical/boolean bins dropped (trees recover them from the base); angular-encoded families (nakshatra_pada) are exempt — they carry no droppable discrete form, see families.nakshatra_pada.rationale.
 - **TFT** keeps 206 of 207 features — sharp bins kept as embeddings; only the antipodal Ketu longitude drops.
 
 ## What #13's PCA will do (a prediction)

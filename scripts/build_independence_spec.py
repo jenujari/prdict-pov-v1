@@ -292,6 +292,24 @@ def build() -> dict:
             "so kept for both"
         ),
     }
+    angular_rationale = (
+        "typed **angular** in #3's own column spec, so #7 already encodes it as a "
+        "sin/cos pair (the `cyclic` family), never as a discrete column. That "
+        "encoding always rides in both models regardless of this family's *kind* — "
+        "there is no droppable discrete form to drop. Stated explicitly because "
+        "`nakshatra_pada` is otherwise a `sharp_bin` and would default to 'drop for "
+        "XGBoost'; that decision is unenforceable against a cyclic-encoded column "
+        "and would silently no-op if applied, so it is pinned to keep-both here instead"
+    )
+
+    # Columns typed `angular` by #3 are already sin/cos-encoded by #7 and always
+    # ride in the `cyclic` family (encoding_spec's `none` fit scope) — no model
+    # ever sees their raw form, so no keep/drop decision on the raw name is
+    # enforceable. `longitude` and `tithy` already resolve to keep-both under the
+    # kind-based policy; `nakshatra_pada` is the one family this actually changes
+    # (its raw form looks like a sharp_bin and would otherwise default to
+    # drop-for-XGBoost, which the real encoded input has no way to honour).
+    angular_raw = set(cspec["types"]["angular"])
 
     graph = {}
     for fam, cols in sorted(families.items()):
@@ -305,14 +323,15 @@ def build() -> dict:
             determined_by, rule = "longitude pair", "|lon_a - lon_b| folded into [0, 180]"
         elif fam == "tithy":
             determined_by, rule = "moon_longitude + sun_longitude", "floor((moon - sun)/12) + 1"
+        is_angular_encoded = set(cols) <= angular_raw
         graph[fam] = {
             "columns": cols,
             "n": len(cols),
             "kind": kind,
             "determined_by": determined_by,
             "rule": rule,
-            "keep": policy(kind),
-            "rationale": rationale[kind],
+            "keep": {"xgboost": True, "tft": True} if is_angular_encoded else policy(kind),
+            "rationale": angular_rationale if is_angular_encoded else rationale[kind],
         }
 
     n_base = sum(g["n"] for g in graph.values() if g["kind"] == "base")
@@ -343,7 +362,11 @@ def build() -> dict:
             "xgboost": {
                 "drop": sorted(drop_xgb),
                 "keep_n": len(feats) - len(set(drop_xgb) & set(feats)),
-                "note": "sharp categorical/boolean bins dropped; trees recover them from the base",
+                "note": (
+                    "sharp categorical/boolean bins dropped (trees recover them from the "
+                    "base); angular-encoded families (nakshatra_pada) are exempt — they "
+                    "carry no droppable discrete form, see families.nakshatra_pada.rationale"
+                ),
             },
             "tft": {
                 "drop": ["ketu_longitude"],
@@ -428,6 +451,9 @@ def render_markdown(spec: dict) -> str:
     a(f"All {len(ps['families'])} survive — the redundancy is invisible to a linear prune. "
       "That is the whole reason this ticket exists.")
     a("")
+    a("`*_nakshatra_pada` is measured here for the same reason as the rest, but its "
+      "row in the table below does not follow from this evidence — see the note there.")
+    a("")
     a("## Keep / drop, per family")
     a("")
     a("The decision follows from the family's *kind*, and it cuts differently for the "
@@ -436,15 +462,27 @@ def render_markdown(spec: dict) -> str:
       "boundary, so they are kept as embeddings for the TFT. Smooth balas ride into "
       "`linear_numeric` for both and are collapsed downstream. Interactions are kept for both.")
     a("")
+    a("**Exception: angular-encoded families.** `*_longitude`, `*_nakshatra_pada` and "
+      "`tithy` are typed **angular** by #3, so #7 already encodes them as sin/cos pairs "
+      "— there is no discrete raw form in the actual model input for either model to "
+      "drop. `longitude` and `tithy` already land on keep-both under their own kind; "
+      "`*_nakshatra_pada` looks like an ordinary `sharp_bin` and would otherwise default "
+      "to drop-for-XGBoost, which is unenforceable against a cyclic encoding — pinned "
+      "to keep-both here instead of silently no-op-ing.")
+    a("")
     a("| Family | n | Kind | Determined by | XGBoost | TFT |")
     a("|--------|---|------|---------------|---------|-----|")
     order = {"base": 0, "interaction": 1, "smooth_bala": 2, "sharp_bin": 3}
+    angular_fams = {"longitude", "nakshatra_pada", "tithy"}
     for fam, g in sorted(spec["families"].items(), key=lambda kv: (order[kv[1]["kind"]], kv[0])):
         keep = g["keep"]
         det = g["determined_by"] or "—"
-        a(f"| `*_{fam}` | {g['n']} | {g['kind']} | {det} | "
+        mark = " †" if fam in angular_fams else ""
+        a(f"| `*_{fam}`{mark} | {g['n']} | {g['kind']} | {det} | "
           f"{'keep' if keep['xgboost'] else '**drop**'} | "
           f"{'keep' if keep['tft'] else '**drop**'} |")
+    a("")
+    a("† angular-encoded — see the exception above.")
     a("")
     xgb, tft = spec["policy"]["xgboost"], spec["policy"]["tft"]
     a(f"- **XGBoost** keeps {xgb['keep_n']} of {t['features']} features "
