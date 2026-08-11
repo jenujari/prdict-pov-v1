@@ -162,7 +162,7 @@
         "xgboost": true,
         "tft": true
       },
-      "rationale": "independent input \u2014 kept for both models"
+      "rationale": "typed **angular** in #3's own column spec, so #7 already encodes it as a sin/cos pair (the `cyclic` family), never as a discrete column. That encoding always rides in both models regardless of this family's *kind* \u2014 there is no droppable discrete form to drop. Stated explicitly because `nakshatra_pada` is otherwise a `sharp_bin` and would default to 'drop for XGBoost'; that decision is unenforceable against a cyclic-encoded column and would silently no-op if applied, so it is pinned to keep-both here instead"
     },
     "nakshatra_name": {
       "columns": [
@@ -203,10 +203,10 @@
       "determined_by": "longitude",
       "rule": "108-fold division of longitude",
       "keep": {
-        "xgboost": false,
+        "xgboost": true,
         "tft": true
       },
-      "rationale": "a discontinuous function of a base column; a tree recovers the boundary from the base for free (drop for XGBoost), but a smooth encoder cannot synthesise it, so it is kept as an embedding for the TFT. #12's linear prune misses it entirely (see prune_survival)"
+      "rationale": "typed **angular** in #3's own column spec, so #7 already encodes it as a sin/cos pair (the `cyclic` family), never as a discrete column. That encoding always rides in both models regardless of this family's *kind* \u2014 there is no droppable discrete form to drop. Stated explicitly because `nakshatra_pada` is otherwise a `sharp_bin` and would default to 'drop for XGBoost'; that decision is unenforceable against a cyclic-encoded column and would silently no-op if applied, so it is pinned to keep-both here instead"
     },
     "navamsa_sign": {
       "columns": [
@@ -455,7 +455,7 @@
         "xgboost": true,
         "tft": true
       },
-      "rationale": "a separation between two bodies; genuinely useful and awkward for either model to reconstruct from separate longitudes (a tree splits axis-aligned), so kept for both"
+      "rationale": "typed **angular** in #3's own column spec, so #7 already encodes it as a sin/cos pair (the `cyclic` family), never as a discrete column. That encoding always rides in both models regardless of this family's *kind* \u2014 there is no droppable discrete form to drop. Stated explicitly because `nakshatra_pada` is otherwise a `sharp_bin` and would default to 'drop for XGBoost'; that decision is unenforceable against a cyclic-encoded column and would silently no-op if applied, so it is pinned to keep-both here instead"
     },
     "uchcha_bala": {
       "columns": [
@@ -668,7 +668,6 @@
       "drop": [
         "jupiter_is_retro",
         "jupiter_nakshatra_name",
-        "jupiter_nakshatra_pada",
         "jupiter_navamsa_sign",
         "jupiter_sign",
         "jupiter_sign_lord",
@@ -679,7 +678,6 @@
         "jupiter_vedha_target",
         "ketu_longitude",
         "ketu_nakshatra_name",
-        "ketu_nakshatra_pada",
         "ketu_navamsa_sign",
         "ketu_sign",
         "ketu_sign_lord",
@@ -687,7 +685,6 @@
         "ketu_vedha_target",
         "mars_is_retro",
         "mars_nakshatra_name",
-        "mars_nakshatra_pada",
         "mars_navamsa_sign",
         "mars_sign",
         "mars_sign_lord",
@@ -698,7 +695,6 @@
         "mars_vedha_target",
         "mercury_is_retro",
         "mercury_nakshatra_name",
-        "mercury_nakshatra_pada",
         "mercury_navamsa_sign",
         "mercury_sign",
         "mercury_sign_lord",
@@ -708,7 +704,6 @@
         "mercury_vedha",
         "mercury_vedha_target",
         "moon_nakshatra_name",
-        "moon_nakshatra_pada",
         "moon_navamsa_sign",
         "moon_sign",
         "moon_sign_lord",
@@ -718,7 +713,6 @@
         "moon_vedha",
         "moon_vedha_target",
         "rahu_nakshatra_name",
-        "rahu_nakshatra_pada",
         "rahu_navamsa_sign",
         "rahu_sign",
         "rahu_sign_lord",
@@ -726,7 +720,6 @@
         "rahu_vedha_target",
         "saturn_is_retro",
         "saturn_nakshatra_name",
-        "saturn_nakshatra_pada",
         "saturn_navamsa_sign",
         "saturn_sign",
         "saturn_sign_lord",
@@ -736,7 +729,6 @@
         "saturn_vedha",
         "saturn_vedha_target",
         "sun_nakshatra_name",
-        "sun_nakshatra_pada",
         "sun_navamsa_sign",
         "sun_sign",
         "sun_sign_lord",
@@ -747,7 +739,6 @@
         "sun_vedha_target",
         "venus_is_retro",
         "venus_nakshatra_name",
-        "venus_nakshatra_pada",
         "venus_navamsa_sign",
         "venus_sign",
         "venus_sign_lord",
@@ -757,8 +748,8 @@
         "venus_vedha",
         "venus_vedha_target"
       ],
-      "keep_n": 117,
-      "note": "sharp categorical/boolean bins dropped; trees recover them from the base"
+      "keep_n": 126,
+      "note": "sharp categorical/boolean bins dropped (trees recover them from the base); angular-encoded families (nakshatra_pada) are exempt \u2014 they carry no droppable discrete form, see families.nakshatra_pada.rationale"
     },
     "tft": {
       "drop": [

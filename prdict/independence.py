@@ -132,11 +132,16 @@ def main() -> None:
         n_features = len(spec.deterministic_columns) + len(spec.base_columns)
         assert len(keep) + len(drop) == n_features, f"{model}: keep+drop != {n_features}"
 
-    # The two models must agree on the base set and disagree only on sharp bins.
+    # The two models must agree on the base set and disagree only on the sharp bins
+    # that are actually droppable — angular-encoded families (nakshatra_pada) are
+    # `sharp_bin` in kind but pinned keep-both, since #7 already encodes them as a
+    # cyclic pair with no discrete raw form to drop.
     only_xgb_drops = set(spec.drop_for("xgboost")) - set(spec.drop_for("tft"))
-    sharp = {c for f in spec.families if f.kind == "sharp_bin" for c in f.columns}
-    assert only_xgb_drops == sharp, "XGBoost/TFT should differ exactly on the sharp bins"
-    print(f"XGBoost-only drops == the {len(sharp)} sharp-bin columns: verified")
+    droppable_sharp = {
+        c for f in spec.families if f.kind == "sharp_bin" and not f.keep["xgboost"] for c in f.columns
+    }
+    assert only_xgb_drops == droppable_sharp, "XGBoost/TFT should differ exactly on the droppable sharp bins"
+    print(f"XGBoost-only drops == the {len(droppable_sharp)} droppable sharp-bin columns: verified")
 
 
 if __name__ == "__main__":
