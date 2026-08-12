@@ -18,6 +18,10 @@ Resolves [#9](https://github.com/jenujari/prdict-pov-v1/issues/9).
 
 Both views carry the same columns and differ only in dtype and in how categoricals are presented. There is one encoded source of truth, not two divergent feature sets.
 
+## `elapsed` is not in this table
+
+`elapsed_days` ([#8](https://github.com/jenujari/prdict-pov-v1/issues/8), `kb/target_spec.md`) is a **decoder-side known-future covariate** — `elapsed_1..elapsed_10` beside the scored target, extended to `elapsed_1..elapsed_30` for the TFT's 30-step training target ([`docs/adr/0002`](../docs/adr/0002-tft-decodes-30-scores-10.md)) — not a member of the 280-column feature block above. Its fit scope is `none`: a deterministic calendar count with no parameters and no leak surface, same standing as the `cyclic` family. It is placed by #11 alongside the label, not encoded here, and the 280-column width assertion above (`angular_spec.model_input_width`) deliberately does not count it.
+
 ## Fit scope is the whole point
 
 Three scopes, and the difference between them is where leakage would enter:
@@ -25,6 +29,8 @@ Three scopes, and the difference between them is where leakage would enter:
 - **`none`** — Deterministic; no parameters, no leak surface. Families: `boolean`, `cyclic`.
 - **`global`** — Fitted once on declared metadata, never on observed values. Rebuilt deterministically at load time from the checksummed level list — not unpickled, so a library upgrade cannot silently change a stored fit. Families: `categorical`.
 - **`fold`** — Fitted on training-fold rows only. Constructed by a factory that requires the training index, and refuses to serialize, so fold state cannot outlive its fold. Families: `linear_numeric`.
+
+"Exactly one fold-scoped family" is a statement about the **encoding** families above only. [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) fits the correlation prune, MI/Spearman ranking and PCA inside folds as well; those are #12/#13 stages downstream of this contract, and this assertion does not cover them.
 
 The asymmetry that makes this worth enforcing: the label encoders are fitted **once and shared by every fold**, while the scaler must be refitted **inside every fold**. Both are 'fitted objects' and the correct handling is opposite, so `prdict/encoding.py` splits them by construction rather than by convention:
 

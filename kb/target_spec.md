@@ -79,6 +79,8 @@ The effect is **real and monotone** — a 5-day step carries 2.6× the volatilit
 
 **Consequence for the feature tickets.** `elapsed_days` is a decoder-side known-future covariate: a real column for the TFT's `time_varying_known_reals`, and 10 columns for XGBoost's flat design matrix. It is calendar-derived, not price-derived, so map decision 5 does not touch it.
 
+`elapsed_1..elapsed_10` (and `elapsed_1..elapsed_30` for the TFT training target) is therefore **not** a member of [#9](https://github.com/jenujari/prdict-pov-v1/issues/9)'s 280-column feature block — see `kb/encoding_spec.md`'s "`elapsed` is not in this table". Fit scope `none`, placed by #11; the 280-column width assertion deliberately excludes it.
+
 ### This also re-confirms #25
 
 The 28 steps spanning a known 2008/2002 gap look inflated on their face — mean \|z\| 1.35 against 0.79 for the rest. Conditioned on elapsed calendar days, that difference almost vanishes:

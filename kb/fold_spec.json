@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-08",
+  "generated": "2026-08-12",
   "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/10",
   "geometry": "rolling_window",
   "total_trainable_origins": 6448,

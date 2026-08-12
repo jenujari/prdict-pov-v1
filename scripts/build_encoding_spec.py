@@ -313,6 +313,20 @@ def render_md(spec: dict) -> str:
         "categoricals are presented. There is one encoded source of truth, not two "
         "divergent feature sets.",
         "",
+        "## `elapsed` is not in this table",
+        "",
+        "`elapsed_days` ([#8](https://github.com/jenujari/prdict-pov-v1/issues/8), "
+        "`kb/target_spec.md`) is a **decoder-side known-future covariate** — "
+        "`elapsed_1..elapsed_10` beside the scored target, extended to "
+        "`elapsed_1..elapsed_30` for the TFT's 30-step training target "
+        "([`docs/adr/0002`](../docs/adr/0002-tft-decodes-30-scores-10.md)) — not a "
+        f"member of the {counts['model_input_width']}-column feature block above. "
+        "Its fit scope is `none`: a deterministic calendar count with no "
+        "parameters and no leak surface, same standing as the `cyclic` family. "
+        "It is placed by #11 alongside the label, not encoded here, and the "
+        f"{counts['model_input_width']}-column width assertion above "
+        "(`angular_spec.model_input_width`) deliberately does not count it.",
+        "",
         "## Fit scope is the whole point",
         "",
         "Three scopes, and the difference between them is where leakage would enter:",
@@ -323,6 +337,12 @@ def render_md(spec: dict) -> str:
         fams = ", ".join(f"`{x}`" for x in s["families"]) or "—"
         lines.append(f"- **`{name}`** — {s['meaning']} Families: {fams}.")
     lines += [
+        "",
+        "\"Exactly one fold-scoped family\" is a statement about the **encoding** "
+        "families above only. [#10](https://github.com/jenujari/prdict-pov-v1/issues/10) "
+        "fits the correlation prune, MI/Spearman ranking and PCA inside folds as well; "
+        "those are #12/#13 stages downstream of this contract, and this assertion does "
+        "not cover them.",
         "",
         "The asymmetry that makes this worth enforcing: the label encoders are "
         "fitted **once and shared by every fold**, while the scaler must be "

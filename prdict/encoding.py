@@ -265,7 +265,13 @@ def apply_dtypes(
 
 
 def assert_fit_boundary(spec: EncodingSpec) -> None:
-    """Check the global/fold split structurally, not by reading comments."""
+    """Check the global/fold split structurally, not by reading comments.
+
+    "Exactly one fold-scoped family" is a statement about the *encoding*
+    families only. #10 fits the correlation prune, MI/Spearman ranking and
+    PCA inside folds as well; those are #12/#13 stages downstream of this
+    contract, not covered by this assertion.
+    """
     # Exactly one fold-scoped family, and it is the unbounded-units one.
     fold_families = [f.name for f in spec.scoped("fold")]
     assert fold_families == ["linear_numeric"], (

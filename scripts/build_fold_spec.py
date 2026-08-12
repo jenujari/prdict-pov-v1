@@ -654,6 +654,11 @@ def render_markdown(spec: dict) -> str:
         "information and may be dropped once. A column dropped because it happened to look",
         "constant in this sample must be re-decided in every fold.",
         "",
+        "These map onto [#9](https://github.com/jenujari/prdict-pov-v1/issues/9)'s fit "
+        "scopes: structural = `none` + `global`, empirical = `fold`. "
+        "`prdict/encoding.py::assert_fit_boundary()` enforces the encoding-stage half of "
+        "this split at import time.",
+        "",
         "### Constraints binding the in-fold stages",
         "",
     ]
