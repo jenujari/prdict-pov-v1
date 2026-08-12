@@ -273,27 +273,54 @@ def _window_offsets(cal: TradingCalendar) -> range:
     return range(-(cal.past - 1), cal.future + 1)
 
 
-def flatten_columns(cal: TradingCalendar, spec: EncodingSpec) -> tuple[list[str], list[str]]:
-    """The flat matrix's column names and types — fold-invariant, so built once.
+def flatten_columns_for(
+    cal: TradingCalendar, columns: list[str], categorical: set[str]
+) -> tuple[list[str], list[str]]:
+    """The flat matrix's column names and types for an arbitrary column subset.
 
     Order is offset-major, feature-minor (`col@t-59 … col@t+30`), which is exactly
-    the C-order flatten of a `(90, 280)` window used below. `elapsed_1..10` follow
-    the window block: they are the decoder-side known-future covariate for the 10
-    scored steps (D4), not one of the 280 features.
+    the C-order flatten of a `(90, len(columns))` window used below. `elapsed_1..10`
+    follow the window block: they are the decoder-side known-future covariate for
+    the 10 scored steps (D4), never one of the windowed feature columns.
+
+    Generic core behind `flatten_columns()` (fixed at the full 280-column block)
+    and set 1/set 2's smaller column lists (#38) — one implementation of "how a
+    window's column names are laid out" rather than a second copy per caller.
     """
-    all_cols = spec.all_columns
-    cat = set(spec.family("categorical").columns)
     names: list[str] = []
     types: list[str] = []
     for offset in _window_offsets(cal):
         tag = f"@t{offset:+d}"
-        for col in all_cols:
+        for col in columns:
             names.append(col + tag)
-            types.append("c" if col in cat else "q")
+            types.append("c" if col in categorical else "q")
     for k in range(1, cal.horizon + 1):
         names.append(f"{ELAPSED}_{k}")
         types.append("q")
     return names, types
+
+
+def flatten_columns(cal: TradingCalendar, spec: EncodingSpec) -> tuple[list[str], list[str]]:
+    """The full 280-column flat matrix's column names and types — fold-invariant."""
+    return flatten_columns_for(cal, spec.all_columns, set(spec.family("categorical").columns))
+
+
+def codes_from_frame(frame: pd.DataFrame, columns: list[str], categorical: set[str]) -> np.ndarray:
+    """Pull a `(n_rows, len(columns))` float32 array out of any typed frame.
+
+    Category-dtype columns become their integer codes (never widened to one-hot);
+    everything else converts directly. Generic core behind `_feature_codes()` (the
+    full 280-column block) and any other typed frame — set 2's fold-fitted PCA
+    frame in particular, whose `pca_1..pca_k` columns don't exist in `spec` at all.
+    """
+    out = np.empty((len(frame), len(columns)), dtype=np.float32)
+    for j, col in enumerate(columns):
+        series = frame[col]
+        if col in categorical:
+            out[:, j] = series.cat.codes.to_numpy(dtype=np.float32)
+        else:
+            out[:, j] = series.to_numpy(dtype=np.float32)
+    return out
 
 
 def _feature_codes(
@@ -305,16 +332,48 @@ def _feature_codes(
     follow `spec.all_columns`, the same order `flatten_columns` names.
     """
     feats = encoded_features(cal, spec, globals_, "xgboost")
-    cat = set(spec.family("categorical").columns)
-    n = len(cal.sessions)
-    out = np.empty((n, len(spec.all_columns)), dtype=np.float32)
-    for j, col in enumerate(spec.all_columns):
-        series = feats[col]
-        if col in cat:
-            out[:, j] = series.cat.codes.to_numpy(dtype=np.float32)
-        else:
-            out[:, j] = series.to_numpy(dtype=np.float32)
-    return out
+    return codes_from_frame(feats, spec.all_columns, set(spec.family("categorical").columns))
+
+
+def flatten_matrix(
+    cal: TradingCalendar,
+    columns: list[str],
+    categorical: set[str],
+    codes: np.ndarray,
+    elapsed: np.ndarray,
+    origins: pd.DatetimeIndex,
+) -> FlatMatrix:
+    """Flatten each origin's 90-session window of `codes` into one flat row.
+
+    For origin `t`, the window is `t-59 … t+30` (encoder 60 + decoder 30), every
+    session's `columns` laid out offset-major, then `elapsed_1..10`. Generic core
+    behind `flatten()` (the full 280-column block, built once and fold-invariant)
+    and set 1/set 2's smaller, and for set 2 fold-scoped, column subsets (#38) —
+    `codes`/`elapsed` are always supplied by the caller here, since which frame
+    they come from (raw encoded features vs. a fold-fitted PCA transform) is a
+    decision only the caller can make.
+    """
+    window = cal.past + cal.future  # 90
+    positions = cal.sessions.get_indexer(origins)
+    if (positions < 0).any():
+        raise ValueError("an origin is not a trading session")
+    starts = positions - (cal.past - 1)
+    if starts.min() < 0 or (positions + cal.future).max() >= len(cal.sessions):
+        raise ValueError("an origin's window falls outside the calendar")
+
+    # sliding_window_view puts the window on the last axis: (n-89, n_cols, 90).
+    win = np.lib.stride_tricks.sliding_window_view(codes, window, axis=0)
+    picked = win[starts]  # (n_origins, n_cols, 90)
+    block = np.transpose(picked, (0, 2, 1)).reshape(len(origins), window * codes.shape[1])
+
+    steps = np.arange(1, cal.horizon + 1)
+    elapsed_block = elapsed[positions[:, None] + steps[None, :]].astype(np.float32)
+
+    values = np.hstack([block.astype(np.float32, copy=False), elapsed_block])
+    names, types = flatten_columns_for(cal, columns, categorical)
+    if values.shape[1] != len(names):
+        raise ValueError(f"flatten produced {values.shape[1]} columns, named {len(names)}")
+    return FlatMatrix(origins=origins, values=values, feature_names=names, feature_types=types)
 
 
 def flatten(
@@ -326,39 +385,18 @@ def flatten(
     codes: np.ndarray | None = None,
     elapsed: np.ndarray | None = None,
 ) -> FlatMatrix:
-    """Flatten each origin's 90-session window into one flat XGBoost row.
+    """Flatten each origin's 90-session window into one flat XGBoost row, full 280 cols.
 
-    For origin `t`, the window is `t-59 … t+30` (encoder 60 + decoder 30), every
-    session's 280 features laid out offset-major, then `elapsed_1..10`. The heavy
-    per-session matrix and the elapsed series are fold-invariant; pass them in via
-    `codes`/`elapsed` to flatten many folds without rebuilding them.
+    The heavy per-session matrix and the elapsed series are fold-invariant; pass
+    them in via `codes`/`elapsed` to flatten many folds without rebuilding them.
     """
     if codes is None:
         codes = _feature_codes(cal, spec, globals_)
     if elapsed is None:
         elapsed = _elapsed_series(cal)
-
-    window = cal.past + cal.future  # 90
-    positions = cal.sessions.get_indexer(origins)
-    if (positions < 0).any():
-        raise ValueError("an origin is not a trading session")
-    starts = positions - (cal.past - 1)
-    if starts.min() < 0 or (positions + cal.future).max() >= len(cal.sessions):
-        raise ValueError("an origin's window falls outside the calendar")
-
-    # sliding_window_view puts the window on the last axis: (n-89, 280, 90).
-    win = np.lib.stride_tricks.sliding_window_view(codes, window, axis=0)
-    picked = win[starts]  # (n_origins, 280, 90)
-    block = np.transpose(picked, (0, 2, 1)).reshape(len(origins), window * codes.shape[1])
-
-    steps = np.arange(1, cal.horizon + 1)
-    elapsed_block = elapsed[positions[:, None] + steps[None, :]].astype(np.float32)
-
-    values = np.hstack([block.astype(np.float32, copy=False), elapsed_block])
-    names, types = flatten_columns(cal, spec)
-    if values.shape[1] != len(names):
-        raise ValueError(f"flatten produced {values.shape[1]} columns, named {len(names)}")
-    return FlatMatrix(origins=origins, values=values, feature_names=names, feature_types=types)
+    return flatten_matrix(
+        cal, spec.all_columns, set(spec.family("categorical").columns), codes, elapsed, origins
+    )
 
 
 # --------------------------------------------------------------------------

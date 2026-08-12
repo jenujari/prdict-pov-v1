@@ -1,0 +1,16 @@
+{
+  "spec_fingerprint": "2d65650c61723d8a",
+  "winning_params": {
+    "max_depth": 4,
+    "eta": 0.1,
+    "subsample": 0.7,
+    "colsample_bytree": 0.6,
+    "min_child_weight": 10,
+    "reg_lambda": 5.0
+  },
+  "best_iteration": 9,
+  "inner_val_rmse": 0.0097183474831508,
+  "n_train": 2470,
+  "n_predict": 669,
+  "seconds": 129.83468994500072
+}

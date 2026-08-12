@@ -93,6 +93,27 @@ class FoldSpec:
         lo, hi = pd.Timestamp(h["final_train_start"]), pd.Timestamp(h["final_train_end"])
         return trainable[(trainable >= lo) & (trainable <= hi)]
 
+    def final_inner_split(self, cal: TradingCalendar) -> tuple[pd.DatetimeIndex, pd.DatetimeIndex]:
+        """Inner train/val for the holdout refit — `final_train()` is a training
+        block too, so the same rule that gives every fold an `inner_train`/
+        `inner_val` (`kb/fold_spec.md`: "the last 15% of *each* training block")
+        applies here, not only to the five rolling folds. Early stopping and
+        hyperparameter selection for the holdout-scored models read this and
+        nothing else, exactly as `Fold.inner_val` does.
+
+        `holdout.final_inner_val_start/end` are already recorded in the spec;
+        `inner_train` is derived the same way `scripts/build_fold_spec.py`'s own
+        `inner_split()` computes it for the rolling folds — everything in
+        `final_train()` up to `purge_sessions` sessions before `inner_val` starts.
+        """
+        h = self.spec["holdout"]
+        train = self.final_train(cal)
+        lo, hi = pd.Timestamp(h["final_inner_val_start"]), pd.Timestamp(h["final_inner_val_end"])
+        inner_val = train[(train >= lo) & (train <= hi)]
+        cutoff = cal.position(inner_val[0]) - self.purge_sessions
+        inner_train = train[train.map(cal.position) <= cutoff]
+        return inner_train, inner_val
+
     def concatenated_val_origins(self, cal: TradingCalendar) -> pd.DatetimeIndex:
         """The out-of-sample series the headline scorecard is computed on.
 
@@ -141,6 +162,14 @@ def main() -> None:
     ft, ho = fs.final_train(cal), fs.holdout(cal)
     print(f"  Final train: {len(ft)} ({ft[0].date()} -> {ft[-1].date()})")
     print(f"  Holdout:     {len(ho)} ({ho[0].date()} -> {ho[-1].date()})")
+
+    fit, fiv = fs.final_inner_split(cal)
+    print(
+        f"  Final inner: {len(fit)}/{len(fiv)} "
+        f"({fiv[0].date()} -> {fiv[-1].date()})"
+    )
+    assert fit[-1] < fiv[0], "final inner_train must end before final inner_val starts"
+    assert fs.purge_sessions <= cal.position(fiv[0]) - cal.position(fit[-1])
 
 
 if __name__ == "__main__":

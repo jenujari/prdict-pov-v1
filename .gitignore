@@ -219,3 +219,8 @@ __marimo__/
 
 # Claude Code local settings and agent worktrees
 .claude/
+
+# Ephemeral training run logs/summaries (#38) — ./scripts/train_xgboost.py
+# writes these fresh every run; kb/xgboost_run.md + predictions/*.parquet are
+# the durable, reproducible outputs that get committed.
+runs/
