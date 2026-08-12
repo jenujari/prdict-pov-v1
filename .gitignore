@@ -224,3 +224,8 @@ __marimo__/
 # writes these fresh every run; kb/xgboost_run.md + predictions/*.parquet are
 # the durable, reproducible outputs that get committed.
 runs/
+
+# Lightning's default CSV logger output (#39) — disabled (logger=False) inside
+# train_tft.py's own Trainer, but ad-hoc/manual TFT fits outside that script
+# create this at the repo root by default.
+lightning_logs/
