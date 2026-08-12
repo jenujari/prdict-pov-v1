@@ -32,6 +32,7 @@
 #
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+export PYTHONPATH="$PWD"
 
 echo "Starting XGBoost training (#38) — see runs/xgboost_training.log for the plain log."
 echo "Ctrl-C to stop early; already-finished contexts are checkpointed and this script"
