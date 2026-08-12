@@ -1,6 +1,6 @@
 # Walk-forward folds, holdout, and purge arithmetic
 
-Generated 2026-08-08 by `scripts/build_fold_spec.py`. Do not hand-edit.
+Generated 2026-08-12 by `scripts/build_fold_spec.py`. Do not hand-edit.
 Resolves [#10](https://github.com/jenujari/prdict-pov-v1/issues/10).
 
 ## Summary
@@ -119,6 +119,8 @@ The distinction is *structural versus empirical*, not *cheap versus expensive*. 
 column dropped because a formula makes it constant carries no fold-specific
 information and may be dropped once. A column dropped because it happened to look
 constant in this sample must be re-decided in every fold.
+
+These map onto [#9](https://github.com/jenujari/prdict-pov-v1/issues/9)'s fit scopes: structural = `none` + `global`, empirical = `fold`. `prdict/encoding.py::assert_fit_boundary()` enforces the encoding-stage half of this split at import time.
 
 ### Constraints binding the in-fold stages
 
