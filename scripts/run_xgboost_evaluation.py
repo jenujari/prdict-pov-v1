@@ -1,24 +1,29 @@
-"""Score the real XGBoost predictions (#38) through #14's locked evaluation protocol.
+"""Score #38's real XGBoost predictions through #14's locked trading protocol.
 
-Reads `predictions/xgboost/*.parquet`, builds the position/cost/scorecard
-pipeline `prdict/evaluation.py` defines, and reports Sharpe/cum-return/max-DD/
-hit-rate per fold and aggregate for set 1, set 2, and the always-up baseline.
+Reads `predictions/xgboost/{context}_{set}.parquet` (written by
+`scripts/train_xgboost.py`) and runs each context through `prdict/evaluation.py`
+unchanged -- this script only assembles the two inputs that module doesn't
+build itself:
 
-Alignment note: `evaluation.py`'s `daily_return` must be the *forward* realized
-return that lands the session after each origin (an origin's own close is
-already known when its prediction is formed, so accruing that day's return
-would be look-ahead). That series is exactly `targets.build(cal).y[:, 0]`
-indexed by origin -- reused here rather than re-derived.
+  - `cum_return_pred`: the model's own Sigma(y_pred_1..y_pred_10) at each origin.
+  - `daily_return`: the *actual* realized next-session return at each origin
+    (`targets.build(cal).y[:, 0]`), which is what accrues while a position
+    entered "at" that origin is held -- using `step_returns` directly here
+    would double-count the origin's own already-known move (the origin is
+    defined as the last session the model may see, so its own close-to-close
+    move already happened before the signal was formed).
 
-    uv run python scripts/run_xgboost_evaluation.py
+Trailing realized vol (the sizing denominator) is the one place a
+backward-looking series is correct: `step_returns(cal)`, rolled 60 sessions,
+reindexed onto each origin -- that trailing window is fully known at the time
+the signal is formed.
+
+    uv run python -m scripts.run_xgboost_evaluation
 """
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 import pandas as pd
@@ -36,127 +41,92 @@ CONTEXTS = ["fold_1", "fold_2", "fold_3", "fold_4", "fold_5", "final"]
 SETS = ["set1", "set2"]
 
 
-def _forward_return(cal, origins: pd.DatetimeIndex) -> pd.Series:
-    """The realized next-session return for each origin -- y_1 of the scored target."""
-    tgt = build_target(cal)
+def _daily_return_for(origins: pd.DatetimeIndex, tgt) -> pd.Series:
     row = {o: i for i, o in enumerate(tgt.origins)}
     missing = [o for o in origins if o not in row]
     if missing:
-        raise ValueError(f"{len(missing)} origins have no scored target, e.g. {missing[0].date()}")
-    y1 = tgt.y[[row[o] for o in origins], 0]
-    return pd.Series(y1, index=origins)
+        raise ValueError(f"{len(missing)} origins missing a scored target, e.g. {missing[0].date()}")
+    return pd.Series(tgt.y[[row[o] for o in origins], 0], index=origins)
 
 
-def _trailing_vol(cal, spec: ev.EvaluationSpec, origins: pd.DatetimeIndex) -> pd.Series:
-    """Trailing realized vol as of each origin's own close -- backward-looking only."""
-    daily = step_returns(cal)
-    vol = ev.realized_vol(daily, spec.vol_window, spec.horizon)
-    missing = [o for o in origins if o not in vol.index]
-    if missing:
-        raise ValueError(f"{len(missing)} origins missing from the vol series, e.g. {missing[0].date()}")
-    return vol.loc[origins]
+def _vol_for(origins: pd.DatetimeIndex, trailing_vol: pd.Series) -> pd.Series:
+    missing = origins.difference(trailing_vol.index)
+    if len(missing):
+        raise ValueError(f"{len(missing)} origins missing a trailing-vol estimate, e.g. {missing[0].date()}")
+    return trailing_vol.loc[origins]
 
 
-def _score_one(cal, spec: ev.EvaluationSpec, pred: pd.DataFrame) -> tuple[ev.Scorecard, ev.Scorecard]:
-    """(model_scorecard, baseline_scorecard) for one context/set's predictions."""
+def score_context(context: str, set_name: str, tgt, trailing_vol: pd.Series, spec: ev.EvaluationSpec):
+    pred = pd.read_parquet(PRED_DIR / f"{context}_{set_name}.parquet")
     origins = pred.index
-    cum_pred = pred.sum(axis=1)
-    vol = _trailing_vol(cal, spec, origins)
-    raw = ev.raw_signal(cum_pred, vol)
+
+    cum_return_pred = pred.sum(axis=1)
+    vol = _vol_for(origins, trailing_vol)
+    daily_return = _daily_return_for(origins, tgt)
+
+    raw = ev.raw_signal(cum_return_pred, vol)
     sized = ev.target_size(raw, spec.neutral_zone)
-
-    daily_return = _forward_return(cal, origins)
     trades = ev.simulate_single_position(sized)
-    model_returns = ev.strategy_returns(trades, sized, daily_return, spec.entry_bps, spec.exit_bps)
-    base_returns = ev.baseline_returns(daily_return, spec.baseline_entry_bps, spec.exit_bps)
+    returns = ev.strategy_returns(trades, sized, daily_return, spec.entry_bps, spec.exit_bps)
 
-    actual_dir = np.sign(daily_return)
-    model_sc = ev.scorecard(model_returns, sized.apply(np.sign), actual_dir, spec.sessions_per_year)
-    base_sc = ev.scorecard(base_returns, pd.Series(1, index=daily_return.index), actual_dir, spec.sessions_per_year)
-    return model_sc, base_sc
+    position_direction = sized.apply(np.sign)
+    actual_direction = np.sign(daily_return)
+    card = ev.scorecard(returns, position_direction, actual_direction, spec.sessions_per_year)
 
-
-def _fmt(sc: ev.Scorecard) -> str:
-    hr = f"{sc.hit_rate:.3f}" if not np.isnan(sc.hit_rate) else "n/a"
-    return f"sharpe={sc.sharpe:+.3f}  cum_ret={sc.cumulative_return:+.4f}  max_dd={sc.max_drawdown:+.4f}  hit_rate={hr}"
+    baseline = ev.baseline_returns(daily_return, spec.baseline_entry_bps, spec.exit_bps)
+    base_card = ev.scorecard(
+        baseline, pd.Series(1, index=daily_return.index), actual_direction, spec.sessions_per_year
+    )
+    return card, base_card, len(origins)
 
 
 def main() -> None:
     cal = load_calendar()
+    fs = load_fold_spec()
     spec = ev.load_spec()
+    tgt = build_target(cal)
 
-    print(f"Evaluation protocol: neutral_zone={spec.neutral_zone}  vol_window={spec.vol_window}  "
-          f"entry_bps={spec.entry_bps}  exit_bps={spec.exit_bps}  baseline_bps={spec.baseline_entry_bps}\n")
+    raw_daily = step_returns(cal)
+    trailing_vol = ev.realized_vol(raw_daily, spec.vol_window, spec.horizon)
 
     rows = []
-    agg_returns = {s: [] for s in SETS}
-    agg_base_returns = []
-    agg_pos_dir = {s: [] for s in SETS}
-    agg_base_pos_dir = []
-    agg_actual_dir = []
-
-    for ctx in CONTEXTS:
-        base_sc_for_ctx = None
+    for context in CONTEXTS:
         for set_name in SETS:
-            path = PRED_DIR / f"{ctx}_{set_name}.parquet"
-            pred = pd.read_parquet(path)
-            model_sc, base_sc = _score_one(cal, spec, pred)
-            base_sc_for_ctx = base_sc
+            card, base_card, n = score_context(context, set_name, tgt, trailing_vol, spec)
+            rows.append((context, set_name, "model", card, n))
+            rows.append((context, set_name, "baseline", base_card, n))
 
-            print(f"{ctx:8s} {set_name}  model:    {_fmt(model_sc)}")
-            rows.append((ctx, set_name, model_sc))
-
-            origins = pred.index
-            cum_pred = pred.sum(axis=1)
-            vol = _trailing_vol(cal, spec, origins)
-            sized = ev.target_size(ev.raw_signal(cum_pred, vol), spec.neutral_zone)
-            daily_return = _forward_return(cal, origins)
-            trades = ev.simulate_single_position(sized)
-            model_returns = ev.strategy_returns(trades, sized, daily_return, spec.entry_bps, spec.exit_bps)
-
-            if ctx != "final":  # aggregate over the 5 rolling folds only, holdout kept separate
-                agg_returns[set_name].append(model_returns)
-                agg_pos_dir[set_name].append(sized.apply(np.sign))
-                if set_name == "set1":
-                    agg_actual_dir.append(np.sign(daily_return))
-
-        print(f"{ctx:8s} baseline  {_fmt(base_sc_for_ctx)}")
-        if ctx != "final":
-            path = PRED_DIR / f"{ctx}_set1.parquet"
-            origins = pd.read_parquet(path).index
-            daily_return = _forward_return(cal, origins)
-            base_returns = ev.baseline_returns(daily_return, spec.baseline_entry_bps, spec.exit_bps)
-            agg_base_returns.append(base_returns)
-            agg_base_pos_dir.append(pd.Series(1, index=daily_return.index))
-        print()
-
-    print("=== Aggregate across the 5 rolling folds (holdout reported separately above) ===")
-    actual_dir_all = pd.concat(agg_actual_dir)
-    for set_name in SETS:
-        returns_all = pd.concat(agg_returns[set_name])
-        pos_dir_all = pd.concat(agg_pos_dir[set_name])
-        sc = ev.scorecard(returns_all, pos_dir_all, actual_dir_all, spec.sessions_per_year)
-        print(f"{set_name}      model:    {_fmt(sc)}")
-        rows.append(("aggregate", set_name, sc))
-
-    base_returns_all = pd.concat(agg_base_returns)
-    base_pos_dir_all = pd.concat(agg_base_pos_dir)
-    base_sc = ev.scorecard(base_returns_all, base_pos_dir_all, actual_dir_all, spec.sessions_per_year)
-    print(f"baseline  {_fmt(base_sc)}")
-    rows.append(("aggregate", "baseline", base_sc))
+    header = (
+        f"{'context':<8} {'set':<5} {'kind':<8} {'sharpe':>8} {'cum_ret':>9} "
+        f"{'max_dd':>8} {'hit_rate':>8} {'n':>5}"
+    )
+    print(header)
+    print("-" * len(header))
+    for context, set_name, kind, card, n in rows:
+        hr = f"{card.hit_rate:.3f}" if not np.isnan(card.hit_rate) else "  n/a"
+        print(
+            f"{context:<8} {set_name:<5} {kind:<8} {card.sharpe:>8.3f} "
+            f"{card.cumulative_return:>9.4f} {card.max_drawdown:>8.4f} {hr:>8} {n:>5}"
+        )
 
     lines = [
-        "# XGBoost evaluation (#38 x #14)",
+        "# XGBoost real predictions scored through #14's evaluation protocol",
         "",
-        "Generated by `scripts/run_xgboost_evaluation.py` against the real predictions in "
-        "`predictions/xgboost/*.parquet`, scored through the locked protocol in `kb/evaluation_spec.md`.",
+        "Generated by `scripts/run_xgboost_evaluation.py`. Do not hand-edit -- rerun the script.",
         "",
-        "| Context | Set | Sharpe | Cum return | Max DD | Hit rate |",
-        "|---|---|---|---|---|---|",
+        "Model position rule / costs / baseline definition are locked in `kb/evaluation_spec.md`, "
+        "written before any prediction existed (map decision 8). This table is the first time "
+        "that protocol has been run on real (not synthetic) predictions.",
+        "",
+        f"| context | set | kind | sharpe | cum_return | max_drawdown | hit_rate | n |",
+        f"|---|---|---|---|---|---|---|---|",
     ]
-    for ctx, set_name, sc in rows:
-        hr = f"{sc.hit_rate:.3f}" if not np.isnan(sc.hit_rate) else "n/a"
-        lines.append(f"| {ctx} | {set_name} | {sc.sharpe:+.3f} | {sc.cumulative_return:+.4f} | {sc.max_drawdown:+.4f} | {hr} |")
+    for context, set_name, kind, card, n in rows:
+        hr = f"{card.hit_rate:.3f}" if not np.isnan(card.hit_rate) else "n/a"
+        lines.append(
+            f"| {context} | {set_name} | {kind} | {card.sharpe:.3f} | "
+            f"{card.cumulative_return:.4f} | {card.max_drawdown:.4f} | {hr} | {n} |"
+        )
     OUT_MD.write_text("\n".join(lines) + "\n")
     print(f"\nWritten: {OUT_MD}")
 
