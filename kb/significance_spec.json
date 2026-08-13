@@ -1,0 +1,43 @@
+{
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/54",
+  "target": {
+    "model": "xgboost",
+    "set_name": "set2",
+    "context": "final",
+    "metric": "sharpe",
+    "observed_value": 0.426,
+    "source": "kb/final_comparison.md's holdout table / kb/xgboost_run.md's final/set2 row"
+  },
+  "null_construction": {
+    "method": "target_permutation",
+    "method_note": "a.k.a. y-scrambling / White's Reality Check style null for a single strategy: refit the exact real pipeline on label-shuffled training data, predict on real (unshuffled) holdout features, score against real (unshuffled) holdout returns through the unchanged #14 protocol. If this routinely reaches the observed Sharpe even with noise labels, the observed Sharpe isn't evidence of anything.",
+    "shuffle_unit": "each final_train origin's own 10-step target vector is permuted as a whole (reassigned to a different origin's feature row) -- never shuffled step-by-step within a vector -- so the null preserves the target's own autocorrelation/distribution and only destroys the feature-to-target mapping, which is exactly what's under test",
+    "features": "real, fold-scoped set2 PCA matrix for final_train -- built once, reused across all permutations (the PCA fit depends only on features, never on labels)",
+    "model_config": "real winning hyperparameters and fixed round count from kb/xgboost_run.md's final/set2 row -- no search per permutation, that choice is already made and is not re-litigated here",
+    "prediction_and_scoring": "real (unshuffled) holdout features and real (unshuffled) holdout returns, scored through prdict/evaluation.py unchanged -- only the training labels are ever shuffled"
+  },
+  "winning_params": {
+    "max_depth": 3,
+    "eta": 0.01,
+    "subsample": 0.7,
+    "colsample_bytree": 1.0,
+    "min_child_weight": 5,
+    "reg_lambda": 5.0
+  },
+  "best_iteration": 24,
+  "num_boost_round": 25,
+  "budget": {
+    "n_permutations": 200,
+    "seed_base": 0,
+    "seed_rule": "permutation i uses seed SEED_BASE + i, i = 0..N_PERMUTATIONS-1",
+    "budget_rule": "fixed in writing here before any permutation runs; not extended after seeing how the null distribution comes out (kb/fold_spec.md's fixed-before-you-look rule, applied to this ticket's own budget)"
+  },
+  "p_value": {
+    "rule": "one-sided: fraction of null Sharpes >= the observed value",
+    "alpha": 0.05
+  },
+  "secondary": {
+    "test": "binomial test of each model/set arm's directional hit-rate against 0.5",
+    "note": "no retraining needed -- reuses kb/final_comparison.md's already-computed hit-rates and origin counts directly"
+  }
+}
