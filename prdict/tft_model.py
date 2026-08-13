@@ -47,10 +47,11 @@ from prdict.dataset import (
     TARGET,
     TIME_IDX,
     Covariates,
+    _elapsed_series,
+    _target_series,
     build_fold_views,
     encoded_features,
     make_dataset,
-    tft_frame,
 )
 from prdict.trading_calendar import TradingCalendar
 
@@ -133,15 +134,46 @@ def set2_columns() -> list[str]:
     return set2.features_for("tft")
 
 
+def _extended_book(cal: TradingCalendar) -> pd.DataFrame:
+    """Book columns over the FULL trading-day index (history + forward), not
+    just history.
+
+    `dataset.tft_frame()` stops at `cal.n_history` (needs `y` observed) — fine
+    for training, but a late holdout origin's *decoder* only needs known-future
+    covariates (#3), not an observed label, so bounding the frame to history
+    starves it of rows it's entitled to. Concretely: the holdout's last
+    trainable origin is only 10 sessions before the last observed close (#8),
+    but the decoder needs 30 — the ~20-origin gap ADR0002 documents as a
+    *training*-pool effect turned out to also truncate `predict_origins` for
+    the holdout arm (caught via a real failed run, not anticipated up front).
+    `y` is fabricated (0) past history, same convention as `tft_frame()`'s
+    row-0 — never read as a real target, since `model.predict()` doesn't use
+    decoder-row targets, only known covariates.
+    """
+    n_total = len(cal.sessions)
+    y = np.zeros(n_total, dtype=np.float32)
+    y[: cal.n_history] = _target_series(cal)
+    return pd.DataFrame(
+        {
+            TIME_IDX: np.arange(n_total, dtype=np.int32),
+            SERIES_ID: pd.Categorical([SERIES] * n_total),
+            TARGET: y,
+            ELAPSED: _elapsed_series(cal).astype(np.float32),
+        }
+    )
+
+
 def build_set1_frame(
     cal: TradingCalendar, spec: encoding.EncodingSpec, globals_: encoding.GlobalEncoders, fold: Any
 ) -> pd.DataFrame:
-    """Set 1's fold-scoped scaled frame — the full `tft_frame`, `linear_numeric`
-    scaled to `fold`'s training rows (#11's `build_fold_views`, unchanged).
-    Covariate *lists* passed to dataset construction are what actually restrict
-    this down to set 1's 90 columns; the frame itself carries all 280.
+    """Set 1's fold-scoped scaled frame, over the full history+forward index
+    (see `_extended_book`). `linear_numeric` scaled to `fold`'s training rows
+    (#11's `build_fold_views`, unchanged). Covariate *lists* passed to dataset
+    construction are what actually restrict this down to set 1's 90 columns.
     """
-    frame = tft_frame(cal, spec, globals_)
+    feats = encoded_features(cal, spec, globals_, "tft")
+    book = _extended_book(cal)
+    frame = pd.concat([book, feats[spec.all_columns].reset_index(drop=True)], axis=1)
     _state, scaled = build_fold_views(spec, frame, fold, cal)
     return scaled
 
@@ -149,27 +181,18 @@ def build_set1_frame(
 def build_set2_frame_for_fold(
     cal: TradingCalendar, spec: encoding.EncodingSpec, globals_: encoding.GlobalEncoders, fold: Any
 ) -> pd.DataFrame:
-    """Set 2's fold-scoped frame: `pca_1..48` replace `linear_numeric`, book
-    columns prepended — mirrors `dataset.tft_frame`'s construction, using
-    `set2.fit_fold`'s transform instead of the raw encoded features. Must be
-    rebuilt per fold/final_train; the PCA loadings are fold-specific (#13).
+    """Set 2's fold-scoped frame over the full history+forward index: `pca_1..48`
+    replace `linear_numeric`, book columns prepended (`_extended_book`) — mirrors
+    `dataset.tft_frame`'s construction, using `set2.fit_fold`'s transform instead
+    of the raw encoded features. Must be rebuilt per fold/final_train; the PCA
+    loadings are fold-specific (#13).
     """
-    from prdict.dataset import _elapsed_series, _target_series
-
     feats = encoded_features(cal, spec, globals_, "tft")
     state = set2.fit_fold(spec, feats, fold, cal)
     transformed = state.transform(feats)
 
-    n = cal.n_history
-    book = pd.DataFrame(
-        {
-            TIME_IDX: np.arange(n, dtype=np.int32),
-            SERIES_ID: pd.Categorical([SERIES] * n),
-            TARGET: _target_series(cal),
-            ELAPSED: _elapsed_series(cal)[:n].astype(np.float32),
-        }
-    )
-    frame = pd.concat([book, transformed.iloc[:n].reset_index(drop=True)], axis=1)
+    book = _extended_book(cal)
+    frame = pd.concat([book, transformed.reset_index(drop=True)], axis=1)
     assert frame[TIME_IDX].dtype.kind == "i"
     return frame
 
