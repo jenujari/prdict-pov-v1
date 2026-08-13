@@ -1,0 +1,62 @@
+{
+  "resolves": "https://github.com/jenujari/prdict-pov-v1/issues/39",
+  "core": {
+    "max_encoder_length": 60,
+    "max_prediction_length": 30,
+    "scored_steps": 10,
+    "loss": "MAE",
+    "loss_note": "point prediction, not QuantileLoss \u2014 matches #38's XGBoost predictions (also a point vector) and #14's evaluation input shape exactly, no quantile-to-point reduction to justify",
+    "target_normalizer": "identity",
+    "target_normalizer_note": "decoder carries raw log returns, matching XGBoost's untransformed target \u2014 the pattern dataset.py's own self-check already uses",
+    "learning_rate": 0.001
+  },
+  "fixed_architecture": {
+    "hidden_continuous_size": 8,
+    "lstm_layers": 1,
+    "share_single_variable_networks": true
+  },
+  "batch_size": 64,
+  "search": {
+    "space": {
+      "hidden_size": [
+        8,
+        16,
+        32
+      ],
+      "attention_head_size": [
+        1,
+        2
+      ],
+      "dropout": [
+        0.1,
+        0.2,
+        0.3
+      ]
+    },
+    "n_trials": 4,
+    "seed": 0,
+    "budget_rule": "fixed in writing here before any model runs; not expanded after seeing inner validation results (kb/fold_spec.md's rule, applied to the TFT's own search exactly as #38 applies it to XGBoost's) \u2014 shrunk to 4 trials from #38's 16 because a TFT fit costs orders of magnitude more per trial, not because the search is any less real",
+    "reads": "inner_train/inner_val only (Fold.inner_train/inner_val, or FoldSpec.final_inner_split for the holdout refit) \u2014 never the outer val or the holdout",
+    "not_searched": "hidden_continuous_size, lstm_layers, share_single_variable_networks, batch_size \u2014 fixed_architecture above; the research doc identifies hidden_size as the primary FLOP/capacity lever and hidden_continuous_size as secondary, so only the former is searched"
+  },
+  "early_stopping": {
+    "monitor": "inner-val loss",
+    "patience": 10,
+    "max_epochs": 100,
+    "max_epochs_note": "an upper bound, not a target \u2014 expected to stop well before this given ~2470 training origins"
+  },
+  "selection_and_refit": {
+    "rule": "best trial by inner-val loss",
+    "refit": "the winning config refits fresh (new weights, same hyperparameters) on the ENTIRE block (fold.train, or final_train for the holdout arm) for exactly best_epoch epochs \u2014 no early stopping, so no further validation data is read. Same two-phase search-then-refit shape as #38's XGBoost contract."
+  },
+  "cpu": {
+    "num_workers": 0,
+    "num_workers_note": "worker IPC often costs more than TimeSeriesDataSet.__getitem__ here (research doc)",
+    "num_threads": 6,
+    "accelerator": "cpu"
+  },
+  "runs": {
+    "contexts": "5 folds x 2 sets (predict on fold.val) + 1 final refit x 2 sets (predict on holdout) = 12 prediction sets",
+    "total_fits": "12 x (4 search trials + 1 final refit) = 60"
+  }
+}
