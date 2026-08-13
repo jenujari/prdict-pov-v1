@@ -1,0 +1,13 @@
+{
+  "spec_fingerprint": "fc112c5a9d40d3f7",
+  "winning_params": {
+    "hidden_size": 32,
+    "attention_head_size": 2,
+    "dropout": 0.2
+  },
+  "best_epoch": 7,
+  "inner_val_loss": 0.008721246384084225,
+  "n_train": 2470,
+  "n_predict": 669,
+  "seconds": 1739.2456175099996
+}
